@@ -338,6 +338,9 @@ class PatrolManager {
             emergencyLogs.pop();
         }
         
+        console.log(`📋 LOG SAVED: ${emergency.distress_type} at ${emergency.location} by ${patrol.id} in ${responseTime.toFixed(2)}s | Total logs: ${emergencyLogs.length}`);
+        console.log(`📊 First log in array:`, emergencyLogs[0]);
+        
         console.log(`📋 Logged: ${emergency.distress_type} at ${emergency.location} saved by ${patrol.id} in ${responseTime.toFixed(2)}s`);
     }
     
@@ -636,7 +639,7 @@ function broadcastSystemState() {
 }
 
 function getSystemState() {
-    return {
+    const state = {
         timestamp: Date.now(),
         map: {
             nodes: cityGraph.getAllNodes(),
@@ -660,6 +663,13 @@ function getSystemState() {
             totalResolved: emergencyLogs.length
         }
     };
+    
+    // Debug log when logs exist
+    if (emergencyLogs.length > 0) {
+        console.log(`📤 Broadcasting state with ${emergencyLogs.length} logs`);
+    }
+    
+    return state;
 }
 
 // ==================================================
