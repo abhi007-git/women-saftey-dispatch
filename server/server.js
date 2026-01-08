@@ -851,6 +851,28 @@ function resetSystem() {
     // Clear emergency queue
     emergencyQueue = new PriorityQueue();
     
+    // Clear resolution history
+    resolutionHistory.length = 0;
+    console.log('  ✓ Cleared resolution history');
+    
+    // Clear zone intelligence (reset hash table)
+    zoneIntelligence = new HashTable(50);
+    console.log('  ✓ Cleared zone intelligence data');
+    
+    // Delete persisted data files
+    try {
+        if (fs.existsSync(HISTORY_FILE)) {
+            fs.unlinkSync(HISTORY_FILE);
+            console.log('  ✓ Deleted resolution history file');
+        }
+        if (fs.existsSync(ZONES_FILE)) {
+            fs.unlinkSync(ZONES_FILE);
+            console.log('  ✓ Deleted zone intelligence file');
+        }
+    } catch (err) {
+        console.error('  ⚠️ Error deleting data files:', err.message);
+    }
+    
     // Reset all regular patrols to home stations
     for (let patrol of patrolManager.patrols.values()) {
         const homeNode = cityGraph.getNode(patrol.homeStation);
