@@ -40,8 +40,8 @@ const PATROL_STATE = {
 
 // Timing Constants (all in seconds)
 const TIMING = {
-    PATROL_MOVEMENT_SPEED: 0.01,   // Seconds per map update with node jumping
-    RESOLUTION_TIME: 0.05,         // Time spent at emergency scene (instant)
+    PATROL_MOVEMENT_SPEED: 0.3,    // Seconds per map update (slower for visibility)
+    RESOLUTION_TIME: 3,            // Time spent at emergency scene (3 second delay)
     RETURN_TIME: 2,                // Time to return to station
     PRIORITY_RECALC_INTERVAL: 1,   // How often to recalculate priorities
     RISK_DECAY_INTERVAL: 60,       // How often zone risks decay
@@ -259,8 +259,8 @@ class PatrolManager {
         
         for (let patrol of [...this.patrols.values(), ...this.emergencyPatrols.values()]) {
             if (patrol.state === PATROL_STATE.EN_ROUTE && patrol.path.length > 0) {
-                // Ultra-fast jump mode - move 5 nodes at once
-                const nodesPerUpdate = 5;
+                // Smooth movement - move 1 node at a time
+                const nodesPerUpdate = 1;
                 
                 patrol.pathProgress += nodesPerUpdate;
                 patrol.eta = Math.max(0, patrol.eta - movementSpeed);
