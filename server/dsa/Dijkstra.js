@@ -61,6 +61,7 @@ class DijkstraPathFinder {
         const distances = new Map(); // Minimum travel time to each node
         const previous = new Map();  // Previous node in optimal path
         const visited = new Set();   // Visited nodes
+        let nodesVisited = 0;        // Track algorithm efficiency
         
         // Priority queue: [{ nodeId, distance }] sorted by distance
         const priorityQueue = [];
@@ -83,6 +84,7 @@ class DijkstraPathFinder {
             // Skip if already visited
             if (visited.has(currentNode)) continue;
             visited.add(currentNode);
+            nodesVisited++; // Track exploration
             
             // Found destination
             if (currentNode === destination) {
@@ -125,15 +127,21 @@ class DijkstraPathFinder {
         // Check if path goes through danger zones
         const pathType = this._classifyPath(path, previous);
         
-        // Calculate rejected (shortest) path for comparison
-        const rejectedPath = this._findShortestPathIgnoringDanger(source, destination);
+        // Count danger zones in path
+        let dangerZonesInPath = 0;
+        for (let i = 1; i < path.length; i++) {
+            const prevInfo = previous.get(path[i].nodeId);
+            if (prevInfo?.isDangerZone) {
+                dangerZonesInPath++;
+            }
+        }
         
         return {
             path: path,
             totalTime: totalTime === Infinity ? -1 : totalTime,
             pathType: pathType,
-            rejectedPath: rejectedPath,
-            dangerZonesAvoided: this._countDangerZonesAvoided(path, rejectedPath)
+            nodesVisited: nodesVisited, // How many nodes algorithm explored
+            dangerZonesInPath: dangerZonesInPath // How many danger zones in final path
         };
     }
 

@@ -16,6 +16,21 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
+const fs = require('fs');
+
+// ==================================================
+// PERSISTENCE PATHS
+// ==================================================
+
+const PERSISTENCE_DIR = path.join(__dirname, 'data');
+const HISTORY_FILE = path.join(PERSISTENCE_DIR, 'resolution_history.json');
+const ZONES_FILE = path.join(PERSISTENCE_DIR, 'zone_intelligence.json');
+
+// Create data directory if it doesn't exist
+if (!fs.existsSync(PERSISTENCE_DIR)) {
+    fs.mkdirSync(PERSISTENCE_DIR, { recursive: true });
+    console.log('📁 Created data directory for persistence');
+}
 
 // ==================================================
 // SYSTEM CONSTANTS (NO MAGIC NUMBERS)
@@ -129,6 +144,95 @@ console.log(`✓ City map loaded: ${CityMapData.nodes.length} nodes, ${CityMapDa
 // 5. Initialize Dijkstra Path Finder
 const pathFinder = new DijkstraPathFinder(cityGraph);
 console.log('✓ Dijkstra path finder initialized');
+
+// ==================================================
+// PERSISTENCE FUNCTIONS
+// ==================================================
+
+/**
+ * Load persisted data from disk
+ */
+function loadPersistedData() {
+    // Load resolution history
+    if (fs.existsSync(HISTORY_FILE)) {
+        try {
+            const data = fs.readFileSync(HISTORY_FILE, 'utf8');
+            const loaded = JSON.parse(data);
+            resolutionHistory.push(...loaded);
+            console.log(`📂 Loaded ${resolutionHistory.length} resolution records from disk`);
+        } catch (error) {
+            console.error('⚠️ Error loading history:', error.message);
+        }
+    }
+    
+    // Load zone intelligence
+    if (fs.existsSync(ZONES_FILE)) {
+        try {
+            const data = fs.readFileSync(ZONES_FILE, 'utf8');
+            const zoneData = JSON.parse(data);
+            
+            // Restore zone data to hash table
+            for (let zoneId in zoneData) {
+                zoneIntelligence.set(zoneId, zoneData[zoneId]);
+            }
+            console.log(`📂 Loaded zone intelligence for ${Object.keys(zoneData).length} zones from disk`);
+        } catch (error) {
+            console.error('⚠️ Error loading zones:', error.message);
+        }
+    }
+}
+
+/**
+ * Save data to disk (called periodically and on resolution)
+ */
+function saveDataToDisk() {
+    try {
+        // Save resolution history
+        fs.writeFileSync(HISTORY_FILE, JSON.stringify(resolutionHistory, null, 2));
+        
+        // Save zone intelligence
+        const allZones = zoneIntelligence.getAllZones();
+        const zoneData = {};
+        allZones.forEach(zone => {
+            zoneData[zone.zoneId] = {
+                risk_level: zone.risk_level,
+                past_incident_count: zone.past_incident_count,
+                dominant_distress_type: zone.dominant_distress_type,
+                average_response_time: zone.average_response_time,
+                recent_incidents: zone.recent_incidents,
+                distress_type_count: zone.distress_type_count
+            };
+        });
+        fs.writeFileSync(ZONES_FILE, JSON.stringify(zoneData, null, 2));
+        
+        console.log(`💾 Data saved: ${resolutionHistory.length} resolutions, ${allZones.length} zones`);
+    } catch (error) {
+        console.error('⚠️ Error saving data:', error.message);
+    }
+}
+
+// Load persisted data on startup
+loadPersistedData();
+
+// Auto-save every 30 seconds
+setInterval(() => {
+    saveDataToDisk();
+}, 30000);
+
+// Save on server shutdown
+process.on('SIGINT', () => {
+    console.log('\n🛑 Server shutting down...');
+    saveDataToDisk();
+    console.log('✓ Data saved successfully');
+    process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n🛑 Server shutting down...');
+    saveDataToDisk();
+    console.log('✓ Data saved successfully');
+    process.exit(0);
+});
 
 // ==================================================
 // PATROL MANAGEMENT SYSTEM
@@ -399,6 +503,12 @@ function handleEmergencyAlert(alertData) {
  * CRITICAL: This runs the dispatch algorithm
  */
 function processEmergencyQueue() {
+    // Track queue positions for history
+    const allEmergencies = emergencyQueue.getAllSorted();
+    allEmergencies.forEach((e, idx) => {
+        e.queuePosition = idx + 1;
+    });
+    
     while (!emergencyQueue.isEmpty()) {
         const emergency = emergencyQueue.peek();
         
@@ -489,7 +599,7 @@ function resolveEmergency(emergencyId) {
             priorityBreakdown: {
                 severityScore: emergency.distress_type === 'assault' || emergency.distress_type === 'kidnap' ? 50 : 30,
                 timeScore: Math.min(((Date.now() - emergency.timestamp) / 1000) * 2, 30),
-                zoneRisk: zone ? zone.riskLevel * 5 : 0,
+                zoneRisk: zone ? zone.risk_level * 5 : 0,
                 availabilityBonus: 10
             },
             queuePosition: emergency.queuePosition || 'N/A',
@@ -504,9 +614,9 @@ function resolveEmergency(emergencyId) {
             dangerZonesAvoided: emergency.route.dangerZonesInPath || 0,
             alternativePathsConsidered: emergency.route.nodesVisited || 0,
             // Zone Intelligence (Hash Table)
-            zoneRisk: zone ? zone.riskLevel : 0,
-            zonePastIncidents: zone ? zone.incidentCount : 0,
-            zoneDominantType: zone ? zone.dominantDistressType : 'N/A',
+            zoneRisk: zone ? zone.risk_level : 0,
+            zonePastIncidents: zone ? zone.past_incident_count : 0,
+            zoneDominantType: zone ? zone.dominant_distress_type : 'N/A',
             hashBucket: zone ? zone.hashIndex : 'N/A',
             // Response metrics
             responseTime: emergency.responseTime,
@@ -521,6 +631,12 @@ function resolveEmergency(emergencyId) {
         }
         
         console.log(`📊 History saved: ${emergency.id} | Total history: ${resolutionHistory.length}`);
+        console.log(`   Details: ${historyEntry.distressType} at ${historyEntry.location}, Priority: ${historyEntry.priority.toFixed(1)}, Path: ${historyEntry.pathLength} nodes`);
+        
+        // Save to disk immediately (important data!)
+        saveDataToDisk();
+    } else {
+        console.log(`⚠️ Could not save history: patrol=${!!patrol}, route=${!!emergency.route}`);
     }
     
     // Update zone intelligence
@@ -529,6 +645,9 @@ function resolveEmergency(emergencyId) {
         emergency.distress_type,
         emergency.responseTime
     );
+    
+    // Save zone data to disk after update
+    saveDataToDisk();
     
     // Complete patrol assignment
     if (emergency.assignedPatrol) {
