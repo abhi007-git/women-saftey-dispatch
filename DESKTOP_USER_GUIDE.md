@@ -38,7 +38,10 @@ The Desktop Control Panel is the **administrative interface** for monitoring and
 - Clears all active emergencies
 - Returns patrols to home stations
 - Resets emergency queue
-- **Does NOT** clear zone intelligence history
+- **Clears all resolution history** (empties historical data)
+- **Clears zone intelligence** (resets hash table)
+- **Deletes JSON persistence files** (removes saved data)
+- Use when you want a completely fresh start
 
 ---
 
@@ -96,7 +99,14 @@ Scenario: Protest blocking main intersection
 
 ## 📋 Information Panels
 
-### 1. Emergency Queue Panel (Top Left)
+**All panels are clickable!** Click any panel header with the 🔍 icon to open a detailed modal view with comprehensive historical data.
+
+### 1. Priority Queue Panel (Max-Heap)
+**Click to view:**
+- Current emergency queue with priority breakdowns
+- Last 10 resolved emergencies with detailed priority calculations
+- How each emergency was scored (severity + wait time + zone risk + availability)
+
 ```
 ┌─────────────────────────────────────┐
 │ 📥 Emergency Queue (Priority)       │
@@ -159,7 +169,13 @@ Zone Risk: +2 pts per risk level
 - Response time
 - Manual resolve button (admin override)
 
-### 3. Zone Intelligence Panel (Bottom Left)
+### 3. Zone Intelligence Panel (Hash Table)
+**Click to view:**
+- Hash table internals (load factor, collisions, bucket utilization)
+- All zones with risk levels and incident counts
+- Collision chains for educational insight
+- High-risk zones requiring attention
+
 ```
 ┌─────────────────────────────────────┐
 │ 🗂️ Zone Intelligence (Hash Table)   │
@@ -184,7 +200,13 @@ Zone Risk: +2 pts per risk level
 
 **Click panel header** for full view of all zones
 
-### 4. Patrol Status Panel (Top Right)
+### 4. Patrol Status Panel
+**Click to view:**
+- All patrol units grouped by status (Available/On Duty)
+- Current locations and assignments
+- Active routes with waypoint progress
+- Real-time patrol distribution statistics
+
 ```
 ┌─────────────────────────────────────┐
 │ 🚓 Patrol Units (6 active)          │
@@ -209,7 +231,13 @@ Zone Risk: +2 pts per risk level
 - Follows Dijkstra's safest path
 - Avoids danger zones automatically
 
-### 5. System Metrics Panel (Middle Right)
+### 5. System Metrics Panel
+**Click to view:**
+- Overall system performance statistics
+- Emergency type breakdown with bar charts
+- Patrol performance metrics
+- Historical trends and averages
+
 ```
 ┌─────────────────────────────────────┐
 │ 📈 System Metrics                   │
@@ -229,13 +257,19 @@ Zone Risk: +2 pts per risk level
 - Average response time
 - Total emergencies resolved
 
-### 6. Dijkstra Path Analysis Panel (Bottom Right)
+### 6. Dijkstra Path Analysis Panel
+**Click to view:**
+- Last 10 pathfinding decisions with full analysis
+- Nodes visited and algorithm efficiency
+- Danger zones avoided on each route
+- Path justifications and optimization details
+
 ```
 ┌─────────────────────────────────────┐
 │ 🛣️ Dijkstra Path Analysis           │
 │                                     │
-│ Click an active emergency route     │
-│ to see path details                 │
+│ Click panel for pathfinding history │
+│ Last 10 route decisions stored      │
 └─────────────────────────────────────┘
 ```
 
@@ -453,6 +487,53 @@ This system demonstrates:
 
 ---
 
+## � Data Persistence
+
+### What Data is Saved?
+The system automatically saves:
+1. **Resolution History**: Last 50 resolved emergencies with full details
+   - Emergency type, location, priority breakdown
+   - Patrol information, response time
+   - Dijkstra path analysis, danger zones avoided
+   - Zone intelligence data at time of resolution
+
+2. **Zone Intelligence**: All zone risk data
+   - Past incident counts per zone
+   - Dominant distress types
+   - Risk level calculations
+   - Hash table with collision chains
+
+### Where is Data Stored?
+- **File Location**: `server/data/` directory
+- **Files Created**:
+  - `resolution_history.json` - All resolved emergency records
+  - `zone_intelligence.json` - Zone risk and incident data
+
+### When is Data Saved?
+- **Auto-save**: Every 30 seconds
+- **Immediate save**: When an emergency is resolved
+- **On shutdown**: When server stops (Ctrl+C graceful shutdown)
+
+### When is Data Loaded?
+- **On startup**: Server automatically loads persisted data
+- **Survives crashes**: Data persists across server restarts
+- **Panel modals**: Click any panel to view historical data
+
+### Clearing All Data
+Click **Reset System** button to:
+- Clear all active emergencies
+- Empty resolution history
+- Reset zone intelligence
+- **Delete JSON files** (removes all saved data)
+- Return patrols to home stations
+
+**Use Reset when:**
+- Starting a fresh demonstration
+- Testing from clean state
+- Removing all historical data
+
+---
+
 ## 📞 Support
 
 **For Technical Issues:**
@@ -471,7 +552,7 @@ This system demonstrates:
 
 This is a **demonstration system** for educational purposes:
 - No authentication required
-- No real data stored
+- Data stored locally in JSON files
 - Not production-ready
 - Use in controlled environment only
 

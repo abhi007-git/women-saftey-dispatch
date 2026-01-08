@@ -1035,7 +1035,139 @@ test("Finds shortest path", () => {
 
 ---
 
-## 📚 Further Reading
+## � Data Persistence System
+
+### File-Based Storage
+**Implementation**: JSON file system (Node.js `fs` module)
+
+**Why JSON?**
+- Human-readable for debugging
+- No database dependencies
+- Easy to inspect and modify
+- Sufficient for educational demonstration
+
+### Persisted Data Structures
+
+#### 1. Resolution History Array
+```javascript
+// Stored in: server/data/resolution_history.json
+[
+  {
+    "id": "EMG_001",
+    "timestamp": 1704707400000,
+    "distressType": "assault",
+    "location": "Main St",
+    "priority": 78.5,
+    "priorityBreakdown": {
+      "severityScore": 50,
+      "timeScore": 12.4,
+      "zoneRisk": 16.1,
+      "availabilityBonus": 10
+    },
+    "patrolId": "PATROL_3",
+    "patrolName": "Unit Alpha",
+    "dijkstraDetails": {
+      "pathTaken": ["Station_A", "Zone_5", "Zone_12"],
+      "pathLength": 3,
+      "nodesVisited": 15,
+      "dangerZonesAvoided": 2
+    },
+    "zoneIntelligence": {
+      "risk_level": 5.2,
+      "past_incident_count": 8,
+      "dominant_distress_type": "harassment"
+    }
+  }
+  // ... up to 50 most recent
+]
+```
+
+#### 2. Zone Intelligence Hash Table
+```javascript
+// Stored in: server/data/zone_intelligence.json
+{
+  "Zone_12": {
+    "zoneId": "Zone_12",
+    "riskLevel": 5.2,
+    "pastIncidents": [
+      {"type": "harassment", "timestamp": 1704707000000},
+      {"type": "stalking", "timestamp": 1704707100000}
+    ],
+    "totalIncidents": 8,
+    "lastIncidentTime": 1704707400000
+  }
+  // ... all zones with history
+}
+```
+
+### Save/Load Operations
+
+**Auto-save Triggers:**
+1. Every 30 seconds (setInterval)
+2. Immediately on emergency resolution
+3. On graceful shutdown (SIGINT/SIGTERM)
+
+**Load on Startup:**
+```javascript
+function loadPersistedData() {
+    // Load resolution history
+    if (fs.existsSync(HISTORY_FILE)) {
+        const data = JSON.parse(fs.readFileSync(HISTORY_FILE));
+        resolutionHistory.push(...data);
+    }
+    
+    // Load zone intelligence
+    if (fs.existsSync(ZONES_FILE)) {
+        const zones = JSON.parse(fs.readFileSync(ZONES_FILE));
+        for (const [zoneId, data] of Object.entries(zones)) {
+            zoneIntelligence.updateZone(zoneId, data);
+        }
+    }
+}
+```
+
+### Data Lifecycle
+```
+Emergency Created → Processed → Resolved
+                                   ↓
+                          Save to resolutionHistory[]
+                                   ↓
+                          Update zoneIntelligence
+                                   ↓
+                          saveDataToDisk()
+                                   ↓
+                          Write JSON files
+```
+
+### Reset Behavior
+```javascript
+function resetSystem() {
+    // Clear memory
+    resolutionHistory.length = 0;
+    zoneIntelligence = new HashTable(50);
+    
+    // Delete persisted files
+    fs.unlinkSync(HISTORY_FILE);
+    fs.unlinkSync(ZONES_FILE);
+}
+```
+
+### Why Not a Database?
+**For this educational project:**
+- ✅ No extra dependencies (no MongoDB, PostgreSQL)
+- ✅ Easy to inspect data (just open JSON file)
+- ✅ Simple backup (copy files)
+- ✅ No connection strings or schemas
+- ✅ Sufficient for 50-100 records
+
+**For production, upgrade to:**
+- MongoDB (document-based, similar to JSON)
+- PostgreSQL (relational, better querying)
+- Redis (in-memory cache for performance)
+
+---
+
+## �📚 Further Reading
 
 **Books:**
 - "Introduction to Algorithms" (CLRS) - Chapters 6 (Heap), 11 (Hash), 22-24 (Graphs)
