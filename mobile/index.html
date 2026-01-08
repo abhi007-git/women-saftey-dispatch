@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Emergency Alert - Mobile</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Header -->
+        <header class="mobile-header">
+            <h1>🚨 Women Safety Alert</h1>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="mobile-content">
+            <!-- Instructions Panel -->
+            <div class="instruction-panel">
+                <h3>📱 Multi-User Simulation Mode</h3>
+                <p>Tap the map to place a person and send an emergency alert. Each alert is independent.</p>
+            </div>
+
+            <!-- City Map -->
+            <div class="map-section">
+                <h3>🗺️ SafeCity Map - Tap Location</h3>
+                <div class="map-container">
+                    <svg id="mobileMap" viewBox="0 0 1400 1100" preserveAspectRatio="xMidYMid meet">
+                        <!-- Map rendered here -->
+                    </svg>
+                    <div class="tap-indicator" id="tapIndicator" style="display: none;">
+                        <div class="pulse-ring"></div>
+                        <div class="pulse-dot"></div>
+                    </div>
+                </div>
+                <div class="location-display" id="locationDisplay">
+                    <strong>Selected:</strong> <span id="selectedLocation">None</span>
+                </div>
+            </div>
+
+            <!-- Emergency Form -->
+            <div class="emergency-form" id="emergencyForm">
+                <h3>⚠️ Emergency Details</h3>
+                
+                <div class="form-group">
+                    <label>Distress Type</label>
+                    <select id="distressType" class="form-control">
+                        <option value="harassment">Harassment</option>
+                        <option value="stalking">Stalking</option>
+                        <option value="assault">Assault</option>
+                        <option value="kidnap">Kidnapping Attempt</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea id="description" class="form-control" rows="3" placeholder="Brief description of the situation..."></textarea>
+                </div>
+
+                <button id="btnSendAlert" class="btn-send-alert" disabled>
+                    Send Emergency Alert 🚨
+                </button>
+
+                <button id="btnClearSelection" class="btn-clear">
+                    Clear Selection
+                </button>
+            </div>
+
+            <!-- Active Simulations -->
+            <div class="active-simulations">
+                <h3>📍 Your Sent Alerts (<span id="alertCount">0</span>)</h3>
+                <div id="alertList" class="alert-list">
+                    <p class="empty-message">No alerts sent yet</p>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <h3>⚡ Quick Test Scenarios</h3>
+                <div class="scenario-buttons">
+                    <button class="btn-scenario" onclick="sendRandomAlert('harassment')">
+                        Random Harassment
+                    </button>
+                    <button class="btn-scenario" onclick="sendRandomAlert('assault')">
+                        Random Assault
+                    </button>
+                    <button class="btn-scenario" onclick="sendRandomAlert('stalking')">
+                        Random Stalking
+                    </button>
+                    <button class="btn-scenario danger" onclick="sendMultipleAlerts(3)">
+                        Send 3 Alerts (Test Overload)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Info Section -->
+            <div class="info-section">
+                <h3>ℹ️ How This Works</h3>
+                <ul>
+                    <li>Each tap creates an independent emergency alert</li>
+                    <li>Server prioritizes based on distress type and zone risk</li>
+                    <li>Patrol units are dispatched automatically</li>
+                    <li>Watch the desktop control panel for dispatch decisions</li>
+                </ul>
+            </div>
+        </main>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast hidden">
+            <span id="toastMessage"></span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

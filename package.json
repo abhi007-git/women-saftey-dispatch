@@ -1,0 +1,33 @@
+{
+  "name": "women-safety-emergency-dispatch-system",
+  "version": "1.0.0",
+  "description": "City-level emergency dispatch simulation with real-time data structures visualization for college project",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "nodemon server/server.js"
+  },
+  "keywords": [
+    "emergency-dispatch",
+    "data-structures",
+    "dijkstra",
+    "priority-queue",
+    "hash-table",
+    "graph-algorithms",
+    "women-safety",
+    "websocket",
+    "real-time"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

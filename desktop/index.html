@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Dispatch Control Panel</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="control-panel">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>🚨 Emergency Dispatch Control Center</h1>
+                <div class="system-status" id="systemStatus">
+                    <span class="status-indicator online"></span>
+                    <span>SYSTEM ONLINE</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="btnResetSystem" class="btn-reset-system" title="Clear all emergencies and reset patrols">
+                    🔄 RESET SYSTEM
+                </button>
+                <div class="time-display" id="timeDisplay"></div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Panel: City Map -->
+            <div class="panel map-panel">
+                <div class="panel-header">
+                    <h2>🗺️ SafeCity Live Map</h2>
+                    <div class="map-controls">
+                        <button id="btnZoomIn">🔍+</button>
+                        <button id="btnZoomOut">🔍-</button>
+                        <button id="btnReset">Reset View</button>
+                    </div>
+                </div>
+                <div class="map-container">
+                    <svg id="cityMap" viewBox="0 0 1400 1100" preserveAspectRatio="xMidYMid meet">
+                        <!-- Map will be rendered here by JavaScript -->
+                    </svg>
+                    <div class="map-legend">
+                        <div class="legend-item">
+                            <span class="legend-icon patrol"></span> Patrol
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-icon emergency"></span> Alert
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-icon danger-zone"></span> Danger
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-icon safe-path"></span> Safe
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Data Structures & Information -->
+            <div class="right-panels">
+                <!-- Priority Queue Panel -->
+                <div class="panel queue-panel">
+                    <div class="panel-header" onclick="openPanelModal('priorityQueue')">
+                        <h2>📊 Priority Queue (Max Heap)</h2>
+                        <div class="panel-header-right">
+                            <div class="queue-stats">
+                                <span id="queueSize">0</span> active
+                            </div>
+                            <span class="panel-expand">🔍 View Details</span>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="dsa-explanation">
+                            <strong>WHY:</strong> Ensures most critical emergencies are handled first<br>
+                            <strong>WHAT:</strong> Max-heap orders by: severity + time + zone risk
+                        </div>
+                        <div id="priorityQueueList" class="queue-list">
+                            <!-- Queue items rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Emergencies Panel -->
+                <div class="panel emergency-panel">
+                    <div class="panel-header" onclick="openPanelModal('activeEmergencies')">
+                        <h2>🚨 Active Emergencies</h2>
+                        <div class="panel-header-right">
+                            <div class="emergency-stats">
+                                <span id="emergencyCount">0</span> active
+                            </div>
+                            <span class="panel-expand">🔍 View Details</span>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div id="emergencyList" class="emergency-list">
+                            <!-- Active emergencies rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hash Table Panel -->
+                <div class="panel hashtable-panel">
+                    <div class="panel-header" onclick="openPanelModal('zoneIntelligence')">
+                        <h2>🗂️ Zone Intelligence (Hash Table)</h2>
+                        <div class="panel-header-right">
+                            <div class="hashtable-stats">
+                                <span id="zoneCount">0</span> zones tracked
+                            </div>
+                            <span class="panel-expand">🔍 View Details</span>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div class="dsa-explanation">
+                            <strong>⚡ WHY Hash Table:</strong> O(1) instant zone lookup when emergency hits<br>
+                            <strong>📊 WHAT IT TRACKS:</strong> Risk level (0-10), incident count, response times<br>
+                            <strong>🎯 IMPACT:</strong> High-risk zones get <span style="color: #e74c3c;">3x routing penalty</span> & priority boost
+                        </div>
+                        <div id="zoneIntelligenceList" class="zone-list">
+                            <!-- Zone intelligence rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Patrol Status Panel -->
+                <div class="panel patrol-panel">
+                    <div class="panel-header" onclick="openPanelModal('patrolStatus')">
+                        <h2>🚓 Patrol Unit Status</h2>
+                        <div class="panel-header-right">
+                            <div class="patrol-stats">
+                                <span id="patrolActive">0</span> active / <span id="patrolTotal">0</span> total
+                            </div>
+                            <span class="panel-expand">🔍 View Details</span>
+                        </div>
+                    </div>
+                    <div class="panel-content">
+                        <div id="patrolStatusList" class="patrol-list">
+                            <!-- Patrol statuses rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Metrics Panel -->
+                <div class="panel metrics-panel">
+                    <div class="panel-header" onclick="openPanelModal('systemMetrics')">
+                        <h2>📈 System Metrics</h2>
+                        <span class="panel-expand">🔍 View Details</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-label">Average Response Time</div>
+                                <div class="metric-value" id="avgResponseTime">--</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">High Risk Zones</div>
+                                <div class="metric-value danger" id="highRiskZones">--</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Total Incidents</div>
+                                <div class="metric-value" id="totalIncidents">--</div>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-label">Average Zone Risk</div>
+                                <div class="metric-value" id="avgZoneRisk">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Path Analysis Panel -->
+                <div class="panel path-panel">
+                    <div class="panel-header" onclick="openPanelModal('dijkstraAnalysis')">
+                        <h2>🛣️ Dijkstra Path Analysis</h2>
+                        <span class="panel-expand">🔍 View Details</span>
+                    </div>
+                    <div class="panel-content">
+                        <div class="dsa-explanation">
+                            <strong>WHY:</strong> Find SAFEST path, not shortest<br>
+                            <strong>WHAT:</strong> Danger zones increase edge weights by 3x
+                        </div>
+                        <div id="pathAnalysis" class="path-analysis">
+                            <p>Click on an active emergency route to see path analysis</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Detail Modal -->
+    <div id="emergencyModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <h2>Emergency Details</h2>
+            <div id="emergencyDetails"></div>
+            <button id="btnResolveEmergency" class="btn-resolve">Resolve Emergency</button>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notificationContainer" class="notification-container"></div>
+
+    <!-- Panel Modal -->
+    <div id="panelModal" class="panel-modal hidden">
+        <div class="panel-modal-content">
+            <div class="panel-modal-header">
+                <h2 id="panelModalTitle">Panel Details</h2>
+                <span class="panel-modal-close" onclick="closePanelModal()">&times;</span>
+            </div>
+            <div class="panel-modal-body" id="panelModalBody">
+                <!-- Content will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
