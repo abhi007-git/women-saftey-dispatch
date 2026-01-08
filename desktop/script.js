@@ -983,7 +983,11 @@ function toggleDangerZone(nodeId, isDanger) {
 }
 
 function resetSystem() {
+    console.log('🔄 Reset System button clicked');
+    console.log('WebSocket state:', ws.readyState, 'OPEN=', WebSocket.OPEN);
+    
     if (ws.readyState === WebSocket.OPEN) {
+        console.log('Sending RESET_SYSTEM message to server...');
         ws.send(JSON.stringify({
             type: 'RESET_SYSTEM'
         }));
@@ -992,7 +996,11 @@ function resetSystem() {
         const pathGroup = document.getElementById('patrolPaths');
         if (pathGroup) pathGroup.innerHTML = '';
         
-        showNotification('✓ System Reset', 'All emergencies cleared', 'success');
+        showNotification('✓ System Reset', 'All emergencies and historical data cleared', 'success');
+        console.log('✓ Reset message sent successfully');
+    } else {
+        console.error('❌ WebSocket not connected! State:', ws.readyState);
+        showNotification('❌ Connection Error', 'Not connected to server. Please refresh the page.', 'error');
     }
 }
 
