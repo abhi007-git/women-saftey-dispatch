@@ -48,6 +48,10 @@ const TIMING = {
     BROADCAST_INTERVAL: 0.05       // Real-time update frequency (20 FPS)
 };
 
+// Emergency Resolution Logs (persistent history)
+const emergencyLogs = [];
+const MAX_LOGS = 100; // Keep last 100 resolutions
+
 // Deployment Thresholds
 const DEPLOYMENT = {
     EMERGENCY_UNIT_PRIORITY_THRESHOLD: 2,  // Deploy if 2+ high priority alerts waiting
@@ -307,6 +311,38 @@ class PatrolManager {
     }
     
     /**
+     * Log emergency resolution with full details
+     */
+    logEmergencyResolution(emergency, patrol, responseTime) {
+        const zone = zoneIntelligence.getZone(emergency.location);
+        
+        const logEntry = {
+            id: emergency.id,
+            timestamp: new Date().toISOString(),
+            distressType: emergency.distress_type,
+            location: emergency.location,
+            priority: emergency.priority,
+            patrolUnit: patrol.id,
+            patrolType: patrol.isEmergencyUnit ? 'Emergency Unit' : 'Regular Patrol',
+            responseTime: responseTime.toFixed(2),
+            zoneRisk: zone ? zone.riskLevel.toFixed(2) : 'N/A',
+            hashTableUsage: zone ? `Zone: ${zone.name}, Incidents: ${zone.incidentCount}, Risk: ${zone.riskLevel.toFixed(2)}` : 'Zone not found',
+            pathLength: patrol.path ? patrol.path.length : 0,
+            algorithm: 'Dijkstra Shortest Path',
+            queuePosition: emergency.queuePosition || 'N/A'
+        };
+        
+        emergencyLogs.unshift(logEntry);
+        
+        // Keep only last MAX_LOGS entries
+        if (emergencyLogs.length > MAX_LOGS) {
+            emergencyLogs.pop();
+        }
+        
+        console.log(`📋 Logged: ${emergency.distress_type} at ${emergency.location} saved by ${patrol.id} in ${responseTime.toFixed(2)}s`);
+    }
+    
+    /**
      * Get all patrol statuses
      */
     getAllPatrolStatuses() {
@@ -464,6 +500,36 @@ function resolveEmergency(emergencyId) {
     emergency.resolvedAt = Date.now();
     emergency.responseTime = (emergency.resolvedAt - emergency.timestamp) / 1000;
     
+    // Create detailed log entry
+    const patrol = patrolManager.patrols.get(emergency.assignedPatrol) || patrolManager.emergencyPatrols.get(emergency.assignedPatrol);
+    const zone = zoneIntelligence.getZone(emergency.nodeId);
+    
+    const logEntry = {
+        id: emergency.id,
+        timestamp: new Date(emergency.resolvedAt).toISOString(),
+        distressType: emergency.distress_type.toUpperCase(),
+        location: emergency.location,
+        priority: emergency.priority.toFixed(1),
+        patrolUnit: emergency.assignedPatrol || 'Unknown',
+        patrolType: patrol ? (patrol.isEmergencyUnit ? 'Emergency Unit' : 'Regular Patrol') : 'Unknown',
+        responseTime: emergency.responseTime.toFixed(2) + 's',
+        zoneRisk: zone ? zone.riskLevel.toFixed(2) : 'N/A',
+        hashTableUsage: zone ? `Zone ${zone.name}: ${zone.incidentCount} incidents, Risk ${zone.riskLevel.toFixed(2)}` : 'Zone data unavailable',
+        pathLength: patrol && patrol.path ? patrol.path.length + ' nodes' : 'N/A',
+        algorithm: 'Dijkstra Shortest Path',
+        queuePosition: emergency.queuePosition || 'N/A'
+    };
+    
+    // Add to logs (newest first)
+    emergencyLogs.unshift(logEntry);
+    
+    // Keep only last 100 logs
+    if (emergencyLogs.length > MAX_LOGS) {
+        emergencyLogs.pop();
+    }
+    
+    console.log(`📋 Logged: ${emergency.distress_type} at ${emergency.location} saved by ${emergency.assignedPatrol} in ${emergency.responseTime.toFixed(2)}s`);
+    
     // Update zone intelligence
     zoneIntelligence.updateZoneRisk(
         emergency.nodeId,
@@ -575,6 +641,7 @@ function getSystemState() {
         activeEmergencies: Array.from(activeEmergencies.values()),
         patrols: patrolManager.getAllPatrolStatuses(),
         zoneIntelligence: zoneIntelligence.getAllZones(),
+        logs: emergencyLogs.slice(0, 50), // Last 50 resolution logs
         statistics: {
             queue: emergencyQueue.getStatistics(),
             zones: zoneIntelligence.getStatistics(),
@@ -583,7 +650,8 @@ function getSystemState() {
                 emergency: patrolManager.emergencyPatrols.size,
                 idle: patrolManager.getAllPatrolStatuses().filter(p => p.state === PATROL_STATE.IDLE).length,
                 active: patrolManager.getAllPatrolStatuses().filter(p => p.state === PATROL_STATE.EN_ROUTE || p.state === PATROL_STATE.ENGAGED).length
-            }
+            },
+            totalResolved: emergencyLogs.length
         }
     };
 }

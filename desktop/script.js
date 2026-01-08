@@ -236,6 +236,36 @@ function openPanelModal(panelType) {
                 const analysis = document.getElementById('pathAnalysisContent');
                 return analysis ? analysis.innerHTML : '<p>No analysis available</p>';
             }
+        },
+        'resolutionLogs': {
+            title: '📋 Resolution Logs - Complete History',
+            getContent: () => {
+                if (!systemState || !systemState.logs || systemState.logs.length === 0) {
+                    return '<p style="text-align: center; padding: 20px;">No emergencies resolved yet</p>';
+                }
+                
+                return systemState.logs.map((log, index) => `
+                    <div class="log-entry-detailed">
+                        <div class="log-entry-header">
+                            <span class="log-number">#${index + 1}</span>
+                            <span class="log-distress-type distress-${log.distressType.toLowerCase()}">${log.distressType}</span>
+                            <span class="log-time">${new Date(log.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div class="log-entry-grid">
+                            <div class="log-field"><strong>Emergency ID:</strong> ${log.id}</div>
+                            <div class="log-field"><strong>Location:</strong> ${log.location}</div>
+                            <div class="log-field"><strong>Priority:</strong> ${log.priority}</div>
+                            <div class="log-field"><strong>Response Time:</strong> ${log.responseTime}</div>
+                            <div class="log-field"><strong>Patrol Unit:</strong> ${log.patrolUnit}</div>
+                            <div class="log-field"><strong>Patrol Type:</strong> ${log.patrolType}</div>
+                            <div class="log-field"><strong>Path Length:</strong> ${log.pathLength}</div>
+                            <div class="log-field"><strong>Algorithm:</strong> ${log.algorithm}</div>
+                            <div class="log-field log-field-full"><strong>Zone Risk:</strong> ${log.zoneRisk}</div>
+                            <div class="log-field log-field-full"><strong>Hash Table Data:</strong> ${log.hashTableUsage}</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
         }
     };
     
@@ -346,6 +376,7 @@ function renderAllPanels() {
     renderPatrolStatus();
     renderMetrics();
     renderDijkstraAnalysis();
+    renderResolutionLogs();
 }
 
 // ==================================================
@@ -1094,6 +1125,47 @@ function createSVGElement(tag, attributes = {}) {
     }
     
     return element;
+}
+
+// ==================================================
+// RESOLUTION LOGS RENDERING
+// ==================================================
+
+function renderResolutionLogs() {
+    const logsList = document.getElementById('logsList');
+    const logsCount = document.getElementById('logsCount');
+    
+    if (!systemState || !systemState.logs) {
+        logsCount.textContent = '0';
+        logsList.innerHTML = '<p class="no-logs">No emergencies resolved yet</p>';
+        return;
+    }
+    
+    const logs = systemState.logs;
+    logsCount.textContent = logs.length;
+    
+    if (logs.length === 0) {
+        logsList.innerHTML = '<p class="no-logs">No emergencies resolved yet</p>';
+        return;
+    }
+    
+    // Show only last 5 logs in panel
+    const recentLogs = logs.slice(0, 5);
+    
+    logsList.innerHTML = recentLogs.map(log => `
+        <div class="log-entry">
+            <div class="log-header">
+                <span class="log-distress-type distress-${log.distressType.toLowerCase()}">${log.distressType}</span>
+                <span class="log-time">${new Date(log.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div class="log-details">
+                <div><strong>Patrol:</strong> ${log.patrolUnit} (${log.patrolType})</div>
+                <div><strong>Location:</strong> ${log.location}</div>
+                <div><strong>Response:</strong> ${log.responseTime}</div>
+                <div><strong>Priority:</strong> ${log.priority}</div>
+            </div>
+        </div>
+    `).join('');
 }
 
 // Make showEmergencyDetails available globally for onclick handlers

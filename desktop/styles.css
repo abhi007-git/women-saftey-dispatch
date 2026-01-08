@@ -1049,6 +1049,152 @@ body {
 }
 
 /* ============================================
+   RESOLUTION LOGS PANEL
+   ============================================ */
+
+.logs-panel {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+}
+
+.logs-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-entry {
+    background: white;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.log-entry:hover {
+    transform: translateX(4px);
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.log-distress-type {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.distress-assault {
+    background: #e74c3c;
+    color: white;
+}
+
+.distress-harassment {
+    background: #f39c12;
+    color: white;
+}
+
+.distress-stalking {
+    background: #9b59b6;
+    color: white;
+}
+
+.distress-kidnap {
+    background: #c0392b;
+    color: white;
+}
+
+.log-time {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+.log-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    font-size: 12px;
+    color: #34495e;
+}
+
+.log-details strong {
+    color: #2c3e50;
+}
+
+.no-logs {
+    text-align: center;
+    color: #7f8c8d;
+    padding: 20px;
+    font-style: italic;
+}
+
+/* Detailed Log Entry (for modal) */
+.log-entry-detailed {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border-left: 5px solid #3498db;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.log-entry-header {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.log-number {
+    background: #3498db;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.log-entry-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.log-field {
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.log-field-full {
+    grid-column: 1 / -1;
+}
+
+.log-field strong {
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.logs-stats {
+    background: #3498db;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+/* ============================================
    RESPONSIVE ADJUSTMENTS
    ============================================ */
 
