@@ -75,6 +75,12 @@ function handleServerMessage(message) {
         case 'STATE_UPDATE':
             systemState = message.data;
             
+            // Debug log for logs data
+            if (message.data.logs && message.data.logs.length > 0) {
+                console.log('📥 Received state update with', message.data.logs.length, 'logs');
+                console.log('   First log:', message.data.logs[0]);
+            }
+            
             // Clear all visual paths when no emergencies exist
             if (!message.data.activeEmergencies || message.data.activeEmergencies.length === 0) {
                 const pathGroup = document.getElementById('patrolPaths');
@@ -1144,9 +1150,14 @@ function renderResolutionLogs() {
     const logsList = document.getElementById('logsList');
     const logsCount = document.getElementById('logsCount');
     
+    console.log('🔍 renderResolutionLogs called');
+    console.log('  systemState:', systemState ? 'EXISTS' : 'NULL');
+    console.log('  systemState.logs:', systemState?.logs ? `ARRAY with ${systemState.logs.length} items` : 'NULL/UNDEFINED');
+    
     if (!systemState || !systemState.logs) {
         logsCount.textContent = '0';
         logsList.innerHTML = '<p class="no-logs">No emergencies resolved yet</p>';
+        console.log('  ❌ No logs - showing empty state');
         return;
     }
     
@@ -1155,8 +1166,12 @@ function renderResolutionLogs() {
     
     if (logs.length === 0) {
         logsList.innerHTML = '<p class="no-logs">No emergencies resolved yet</p>';
+        console.log('  ❌ Logs array is empty');
         return;
     }
+    
+    console.log('  ✅ Rendering', logs.length, 'logs');
+    console.log('  First log:', logs[0]);
     
     // Show only last 5 logs in panel
     const recentLogs = logs.slice(0, 5);
