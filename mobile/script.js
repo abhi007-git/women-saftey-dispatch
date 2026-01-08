@@ -34,6 +34,14 @@ function initializeWebSocket() {
     ws.onopen = () => {
         console.log('✓ Connected to dispatch server');
         updateConnectionStatus(true);
+        
+        // Send heartbeat every 30 seconds to keep connection alive
+        if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
+        window.heartbeatInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'PING' }));
+            }
+        }, 30000);
     };
     
     ws.onmessage = (event) => {
@@ -300,6 +308,16 @@ function handleMapClick(event) {
 function findNearestNode(x, y) {
     if (!mapData) return null;
     
+    // Get patrol station locations to avoid
+    const patrolStations = [
+        { x: 910, y: 605 },  // PATROL_1 - C7
+        { x: 210, y: 385 },  // PATROL_2 - UCN2
+        { x: 350, y: 825 },  // PATROL_3 - LCS3
+        { x: 70, y: 605 },   // PATROL_4 - C1
+        { x: 1330, y: 605 }, // PATROL_5 - C10
+        { x: 1190, y: 165 }  // PATROL_6 - UN9
+    ];
+    
     let nearest = null;
     let minDistance = Infinity;
     
@@ -308,11 +326,32 @@ function findNearestNode(x, y) {
         const dy = node.y - y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
-        if (distance < minDistance && distance < 30) { // 30px threshold
+        // Check if node is far enough from all patrol stations
+        const farFromPatrols = patrolStations.every(station => {
+            const sdx = node.x - station.x;
+            const sdy = node.y - station.y;
+            const stationDistance = Math.sqrt(sdx * sdx + sdy * sdy);
+            return stationDistance > 200; // Minimum 200px away from any patrol
+        });
+        
+        if (distance < minDistance && distance < 30 && farFromPatrols) {
             minDistance = distance;
             nearest = node;
         }
     });
+    
+    // If no valid node found (all too close to patrols), show warning
+    if (!nearest) {
+        const statusText = document.getElementById('statusText');
+        if (statusText) {
+            statusText.textContent = 'Too close to patrol! Pick another spot';
+            statusText.style.color = '#e74c3c';
+            setTimeout(() => {
+                statusText.textContent = 'Connected';
+                statusText.style.color = '';
+            }, 2000);
+        }
+    }
     
     return nearest;
 }

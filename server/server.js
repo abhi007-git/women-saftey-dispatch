@@ -245,7 +245,7 @@ class PatrolManager {
         patrol.assignedEmergency = emergency.id;
         patrol.path = route.path;
         patrol.pathProgress = 0;
-        patrol.eta = route.totalTime;
+        patrol.eta = route.totalTime + 3; // Add 3 second delay to travel time
         patrol.lastStateChange = Date.now();
         
         return true;
@@ -307,20 +307,20 @@ class PatrolManager {
      * Log emergency resolution with full details
      */
     logEmergencyResolution(emergency, patrol, responseTime) {
-        const zone = zoneIntelligence.getZone(emergency.location);
+        const zone = zoneIntelligence.getZone(emergency.nodeId);
         
         const logEntry = {
             id: emergency.id,
             timestamp: new Date().toISOString(),
-            distressType: emergency.distress_type,
+            distressType: emergency.distress_type.toUpperCase(),
             location: emergency.location,
-            priority: emergency.priority,
+            priority: emergency.priority.toFixed(1),
             patrolUnit: patrol.id,
             patrolType: patrol.isEmergencyUnit ? 'Emergency Unit' : 'Regular Patrol',
-            responseTime: responseTime.toFixed(2),
+            responseTime: responseTime.toFixed(2) + 's',
             zoneRisk: zone ? zone.riskLevel.toFixed(2) : 'N/A',
-            hashTableUsage: zone ? `Zone: ${zone.name}, Incidents: ${zone.incidentCount}, Risk: ${zone.riskLevel.toFixed(2)}` : 'Zone not found',
-            pathLength: patrol.path ? patrol.path.length : 0,
+            hashTableUsage: zone ? `Zone ${zone.name}: ${zone.incidentCount} incidents, Risk ${zone.riskLevel.toFixed(2)}` : 'Zone data unavailable',
+            pathLength: patrol.path ? patrol.path.length + ' nodes' : 'N/A',
             algorithm: 'Dijkstra Shortest Path',
             queuePosition: emergency.queuePosition || 'N/A'
         };
@@ -493,35 +493,11 @@ function resolveEmergency(emergencyId) {
     emergency.resolvedAt = Date.now();
     emergency.responseTime = (emergency.resolvedAt - emergency.timestamp) / 1000;
     
-    // Create detailed log entry
+    // Create and store log entry
     const patrol = patrolManager.patrols.get(emergency.assignedPatrol) || patrolManager.emergencyPatrols.get(emergency.assignedPatrol);
-    const zone = zoneIntelligence.getZone(emergency.nodeId);
-    
-    const logEntry = {
-        id: emergency.id,
-        timestamp: new Date(emergency.resolvedAt).toISOString(),
-        distressType: emergency.distress_type.toUpperCase(),
-        location: emergency.location,
-        priority: emergency.priority.toFixed(1),
-        patrolUnit: emergency.assignedPatrol || 'Unknown',
-        patrolType: patrol ? (patrol.isEmergencyUnit ? 'Emergency Unit' : 'Regular Patrol') : 'Unknown',
-        responseTime: emergency.responseTime.toFixed(2) + 's',
-        zoneRisk: zone ? zone.riskLevel.toFixed(2) : 'N/A',
-        hashTableUsage: zone ? `Zone ${zone.name}: ${zone.incidentCount} incidents, Risk ${zone.riskLevel.toFixed(2)}` : 'Zone data unavailable',
-        pathLength: patrol && patrol.path ? patrol.path.length + ' nodes' : 'N/A',
-        algorithm: 'Dijkstra Shortest Path',
-        queuePosition: emergency.queuePosition || 'N/A'
-    };
-    
-    // Add to logs (newest first)
-    emergencyLogs.unshift(logEntry);
-    
-    // Keep only last 100 logs
-    if (emergencyLogs.length > MAX_LOGS) {
-        emergencyLogs.pop();
+    if (patrol) {
+        patrolManager.logEmergencyResolution(emergency, patrol, emergency.responseTime);
     }
-    
-    console.log(`📋 Logged: ${emergency.distress_type} at ${emergency.location} saved by ${emergency.assignedPatrol} in ${emergency.responseTime.toFixed(2)}s`);
     
     // Update zone intelligence
     zoneIntelligence.updateZoneRisk(
@@ -582,6 +558,13 @@ wss.on('connection', (ws) => {
 
 function handleClientMessage(data, ws) {
     switch (data.type) {
+        case 'PING':
+            // Heartbeat - keep connection alive
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'PONG' }));
+            }
+            break;
+            
         case 'NEW_EMERGENCY':
             handleEmergencyAlert(data.payload);
             break;
