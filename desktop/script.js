@@ -35,6 +35,14 @@ function initializeWebSocket() {
     ws.onopen = () => {
         console.log('✓ Connected to dispatch server');
         updateSystemStatus(true);
+        
+        // Send heartbeat every 30 seconds to keep connection alive
+        if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
+        window.heartbeatInterval = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'PING' }));
+            }
+        }, 30000);
     };
     
     ws.onmessage = (event) => {
@@ -54,6 +62,7 @@ function initializeWebSocket() {
     ws.onclose = () => {
         console.log('Disconnected from server. Attempting reconnection...');
         updateSystemStatus(false);
+        if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
         setTimeout(initializeWebSocket, 3000);
     };
 }

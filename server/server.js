@@ -269,11 +269,17 @@ class PatrolManager {
                 const currentIndex = Math.min(patrol.pathProgress, patrol.path.length - 1);
                 patrol.currentLocation = patrol.path[currentIndex].nodeId;
                 
-                // Reached destination
-                if (currentIndex >= patrol.path.length - 1 || patrol.eta <= 0) {
+                // Calculate time elapsed since assignment
+                const timeElapsed = (Date.now() - patrol.lastStateChange) / 1000;
+                
+                // Reached destination ONLY if: reached last node AND at least 3 seconds have passed
+                const reachedLastNode = currentIndex >= patrol.path.length - 1;
+                const minTimeElapsed = timeElapsed >= TIMING.RESOLUTION_TIME;
+                
+                if (reachedLastNode && minTimeElapsed) {
                     patrol.state = PATROL_STATE.ENGAGED;
                     patrol.pathProgress = 0;
-                    patrol.lastStateChange = Date.now();
+                    patrol.engagedAt = Date.now(); // Track when engaged
                     patrol.currentLocation = patrol.path[patrol.path.length - 1].nodeId;
                 }
             }
@@ -511,17 +517,12 @@ function resolveEmergency(emergencyId) {
         patrolManager.completeAssignment(emergency.assignedPatrol);
     }
     
-    // Broadcast immediately so logs appear
-    broadcastSystemState();
-    
-    // Remove from active emergencies after delay
-    setTimeout(() => {
-        activeEmergencies.delete(emergencyId);
-        broadcastSystemState();
-    }, 3000);
+    // Remove woman from map IMMEDIATELY when engaged
+    activeEmergencies.delete(emergencyId);
     
     console.log(`✓ Emergency ${emergencyId} resolved in ${emergency.responseTime.toFixed(1)}s`);
     
+    // Broadcast immediately so woman disappears and logs appear
     broadcastSystemState();
 }
 
@@ -541,6 +542,12 @@ wss.on('connection', (ws) => {
         data: getSystemState()
     }));
     
+    // Set up heartbeat tracking
+    ws.isAlive = true;
+    ws.on('pong', () => {
+        ws.isAlive = true;
+    });
+    
     ws.on('message', (message) => {
         try {
             const data = JSON.parse(message);
@@ -550,10 +557,30 @@ wss.on('connection', (ws) => {
         }
     });
     
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+    });
+    
     ws.on('close', () => {
         clients.delete(ws);
         console.log(`Client disconnected. Total clients: ${clients.size}`);
     });
+});
+
+// Heartbeat to detect broken connections
+const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+            console.log('Terminating dead connection');
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000); // Check every 30 seconds
+
+wss.on('close', () => {
+    clearInterval(heartbeatInterval);
 });
 
 function handleClientMessage(data, ws) {
@@ -663,14 +690,11 @@ setInterval(() => {
                 emergency.status = EMERGENCY_STATE.ENGAGED;
             }
             
-            // Auto-resolve after resolution time at scene
-            if (patrol.state === PATROL_STATE.ENGAGED) {
-                const timeAtScene = (Date.now() - emergency.assignedAt - (emergency.eta * 1000)) / 1000;
-                if (timeAtScene >= TIMING.RESOLUTION_TIME) {
-                    resolveEmergency(patrol.assignedEmergency);
-                    // Immediately check queue for next emergency
-                    processEmergencyQueue();
-                }
+            // Auto-resolve IMMEDIATELY when patrol engages (woman deleted on engagement)
+            if (patrol.state === PATROL_STATE.ENGAGED && emergency.status !== EMERGENCY_STATE.RESOLVED) {
+                resolveEmergency(patrol.assignedEmergency);
+                // Immediately check queue for next emergency
+                processEmergencyQueue();
             }
         }
     }
