@@ -128,8 +128,16 @@ function initializeUI() {
     document.getElementById('btnZoomOut').addEventListener('click', () => zoomMap(0.8));
     document.getElementById('btnReset').addEventListener('click', resetMap);
     
-    // System controls
-    document.getElementById('btnResetSystem').addEventListener('click', resetSystem);
+    // System controls - with error handling
+    const resetBtn = document.getElementById('btnResetSystem');
+    if (resetBtn) {
+        console.log('✓ Reset button found, attaching event listener');
+        resetBtn.addEventListener('click', resetSystem);
+        // Also set onclick as backup
+        resetBtn.onclick = resetSystem;
+    } else {
+        console.error('❌ Reset button not found in DOM!');
+    }
     
     // Modal controls
     document.querySelector('.modal-close').addEventListener('click', closeModal);
@@ -1003,6 +1011,9 @@ function resetSystem() {
         showNotification('❌ Connection Error', 'Not connected to server. Please refresh the page.', 'error');
     }
 }
+
+// Make resetSystem globally accessible for inline onclick
+window.resetSystem = resetSystem;
 
 // ==================================================
 // MAP CONTROLS
