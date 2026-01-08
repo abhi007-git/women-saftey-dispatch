@@ -75,12 +75,6 @@ function handleServerMessage(message) {
         case 'STATE_UPDATE':
             systemState = message.data;
             
-            // Debug log for logs data
-            if (message.data.logs && message.data.logs.length > 0) {
-                console.log('📥 Received state update with', message.data.logs.length, 'logs');
-                console.log('   First log:', message.data.logs[0]);
-            }
-            
             // Clear all visual paths when no emergencies exist
             if (!message.data.activeEmergencies || message.data.activeEmergencies.length === 0) {
                 const pathGroup = document.getElementById('patrolPaths');
