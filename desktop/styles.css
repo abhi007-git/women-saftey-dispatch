@@ -177,6 +177,7 @@ body {
     display: flex;
     align-items: center;
     gap: 15px;
+    pointer-events: none; /* Allow clicks to pass through to parent */
 }
 
 .panel-expand {
@@ -187,11 +188,19 @@ body {
     border-radius: 12px;
     font-weight: 600;
     transition: all 0.2s ease;
+    pointer-events: none; /* Allow clicks to pass through */
 }
 
 .panel-header:hover .panel-expand {
     background: rgba(255, 255, 255, 0.3);
     transform: scale(1.05);
+}
+
+/* Allow clicks to pass through stats containers to panel header */
+.queue-stats,
+.emergency-stats,
+.patrol-stats {
+    pointer-events: none;
 }
 
 .panel-header h2 {

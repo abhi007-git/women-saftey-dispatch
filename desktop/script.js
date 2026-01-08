@@ -1000,9 +1000,28 @@ function resetSystem() {
             type: 'RESET_SYSTEM'
         }));
         
-        // Immediately clear visuals
+        // Immediately clear client-side state
+        if (systemState) {
+            systemState.emergencies = [];
+            systemState.emergencyQueue = [];
+            systemState.resolutionHistory = [];
+            if (systemState.hashTableInternals) {
+                systemState.hashTableInternals.zones = [];
+            }
+        }
+        
+        // Clear visuals
         const pathGroup = document.getElementById('patrolPaths');
         if (pathGroup) pathGroup.innerHTML = '';
+        
+        // Clear emergency list
+        const emergencyList = document.getElementById('emergencyList');
+        if (emergencyList) emergencyList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No active emergencies</p>';
+        
+        // Request fresh state from server
+        setTimeout(() => {
+            ws.send(JSON.stringify({ type: 'REQUEST_STATE' }));
+        }, 100);
         
         showNotification('✓ System Reset', 'All emergencies and historical data cleared', 'success');
         console.log('✓ Reset message sent successfully');
