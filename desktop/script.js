@@ -195,75 +195,7 @@ function showNotification(title, message, type = 'info') {
     }, 5000);
 }
 
-function openPanelModal(panelType) {
-    const modal = document.getElementById('panelModal');
-    const modalTitle = document.getElementById('panelModalTitle');
-    const modalBody = document.getElementById('panelModalBody');
-    
-    if (!modal || !modalTitle || !modalBody) return;
-    
-    // Set title and content based on panel type
-    const panelData = {
-        'priorityQueue': {
-            title: '📊 Priority Queue (Max Heap) - Full View',
-            getContent: () => {
-                const queueList = document.getElementById('priorityQueueList');
-                return queueList ? queueList.innerHTML : '<p>No data available</p>';
-            }
-        },
-        'activeEmergencies': {
-            title: '🚨 Active Emergencies - Full View',
-            getContent: () => {
-                const emergencyList = document.getElementById('emergencyList');
-                return emergencyList ? emergencyList.innerHTML : '<p>No active emergencies</p>';
-            }
-        },
-        'zoneIntelligence': {
-            title: '🗂️ Zone Intelligence (Hash Table) - Full View',
-            getContent: () => {
-                const zoneList = document.getElementById('zoneIntelligenceList');
-                return zoneList ? zoneList.innerHTML : '<p>No data available</p>';
-            }
-        },
-        'patrolStatus': {
-            title: '🚓 Patrol Unit Status - Full View',
-            getContent: () => {
-                const patrolList = document.getElementById('patrolStatusList');
-                return patrolList ? patrolList.innerHTML : '<p>No patrols available</p>';
-            }
-        },
-        'systemMetrics': {
-            title: '📈 System Metrics - Full View',
-            getContent: () => {
-                const metrics = document.getElementById('metricsContent');
-                return metrics ? metrics.innerHTML : '<p>No metrics available</p>';
-            }
-        },
-        'dijkstraAnalysis': {
-            title: '🛣️ Dijkstra Path Analysis - Full View',
-            getContent: () => {
-                const analysis = document.getElementById('pathAnalysisContent');
-                return analysis ? analysis.innerHTML : '<p>No analysis available</p>';
-            }
-        }
-    };
-    
-    const panel = panelData[panelType];
-    if (panel) {
-        modalTitle.textContent = panel.title;
-        modalBody.innerHTML = panel.getContent();
-        modal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden'; // Prevent background scrolling
-    }
-}
-
-function closePanelModal() {
-    const modal = document.getElementById('panelModal');
-    if (modal) {
-        modal.classList.add('hidden');
-        document.body.style.overflow = ''; // Restore scrolling
-    }
-}
+// OLD openPanelModal removed - using new version with comprehensive modal rendering below
 
 function showMapSaveNotification(emergency) {
     if (!emergency || !systemState?.map?.nodes) return;
@@ -1139,13 +1071,29 @@ function openPanelModal(panelType) {
             title.textContent = '🛣️ Dijkstra Path Analysis History';
             body.innerHTML = renderDijkstraModal();
             break;
+        case 'activeEmergencies':
+            title.textContent = '🚨 Active Emergencies - Live View';
+            body.innerHTML = renderActiveEmergenciesModal();
+            break;
+        case 'patrolStatus':
+            title.textContent = '🚓 Patrol Unit Status - Live View';
+            body.innerHTML = renderPatrolStatusModal();
+            break;
+        default:
+            title.textContent = 'Information';
+            body.innerHTML = '<p style="text-align: center; padding: 20px;">No data available for this section.</p>';
     }
     
     modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 }
 
 function closePanelModal() {
-    document.getElementById('panelModal').classList.add('hidden');
+    const modal = document.getElementById('panelModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
 }
 
 // Priority Queue Modal Content
@@ -1492,6 +1440,186 @@ function renderDijkstraModal() {
                 </div>
             `;
         });
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// Active Emergencies Modal
+function renderActiveEmergenciesModal() {
+    const emergencies = systemState.emergencies || [];
+    
+    let html = '<div style="max-height: 600px; overflow-y: auto;">';
+    
+    if (emergencies.length === 0) {
+        html += '<p style="text-align: center; padding: 40px; color: #7f8c8d;">No active emergencies at the moment</p>';
+    } else {
+        html += `<h3 style="color: #e74c3c; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">🚨 ${emergencies.length} Active Emergency${emergencies.length > 1 ? 'ies' : ''}</h3>`;
+        
+        emergencies.forEach(e => {
+            const statusColor = {
+                'PENDING': '#f39c12',
+                'ASSIGNED': '#3498db',
+                'RESPONDING': '#9b59b6',
+                'ENGAGED': '#2ecc71'
+            }[e.status] || '#7f8c8d';
+            
+            const waitTime = ((Date.now() - e.timestamp) / 1000).toFixed(1);
+            
+            html += `
+                <div style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(155, 89, 182, 0.1)); padding: 20px; margin: 15px 0; border-left: 5px solid ${statusColor}; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div>
+                            <h4 style="margin: 0; color: #ecf0f1; font-size: 18px;">${e.id}</h4>
+                            <span style="color: #95a5a6; font-size: 13px;">Reported ${waitTime}s ago</span>
+                        </div>
+                        <span style="background: ${statusColor}; color: white; padding: 8px 15px; border-radius: 20px; font-weight: bold; font-size: 13px;">
+                            ${e.status}
+                        </span>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div>
+                            <div style="color: #7f8c8d; font-size: 12px; margin-bottom: 5px;">📍 LOCATION</div>
+                            <div style="color: #ecf0f1; font-weight: bold;">${e.location}</div>
+                            <div style="color: #95a5a6; font-size: 12px;">Node: ${e.nodeId}</div>
+                        </div>
+                        <div>
+                            <div style="color: #7f8c8d; font-size: 12px; margin-bottom: 5px;">🚨 EMERGENCY TYPE</div>
+                            <div style="color: #ecf0f1; font-weight: bold; text-transform: uppercase;">${e.distress_type}</div>
+                        </div>
+                    </div>
+                    
+                    ${e.assignedPatrol ? `
+                        <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
+                            <div style="color: #3498db; font-size: 12px; margin-bottom: 5px;">🚓 ASSIGNED PATROL</div>
+                            <div style="color: #ecf0f1;">${e.assignedPatrol.name}</div>
+                            <div style="color: #95a5a6; font-size: 12px;">${e.assignedPatrol.type.toUpperCase()} • ${e.assignedPatrol.currentLocation || 'En route'}</div>
+                        </div>
+                    ` : `
+                        <div style="margin-top: 15px; padding: 10px; background: rgba(243, 156, 18, 0.2); border-radius: 5px;">
+                            <div style="color: #f39c12;">⏳ Waiting for patrol assignment...</div>
+                        </div>
+                    `}
+                    
+                    <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.4); border-radius: 5px;">
+                        <div style="color: #f39c12; font-size: 12px; margin-bottom: 8px;">📊 PRIORITY CALCULATION</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; color: #bdc3c7;">
+                            <div>• Severity: ${e.distress_type === 'assault' || e.distress_type === 'kidnap' ? '50' : '30'} pts</div>
+                            <div>• Zone Risk: ${(e.zone_risk_level * 5).toFixed(1)} pts</div>
+                            <div>• Wait Time: ${(waitTime * 2).toFixed(1)} pts</div>
+                            <div style="color: #2ecc71; font-weight: bold;">= Priority: ${e.priority ? e.priority.toFixed(1) : 'Calculating...'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// Patrol Status Modal
+function renderPatrolStatusModal() {
+    const patrols = systemState.patrols || [];
+    
+    let html = '<div style="max-height: 600px; overflow-y: auto;">';
+    
+    if (patrols.length === 0) {
+        html += '<p style="text-align: center; padding: 40px; color: #7f8c8d;">No patrol units available</p>';
+    } else {
+        const availableCount = patrols.filter(p => p.status === 'IDLE').length;
+        const activeCount = patrols.length - availableCount;
+        
+        html += `
+            <div style="display: flex; gap: 20px; margin-bottom: 20px;">
+                <div style="flex: 1; background: linear-gradient(135deg, #2ecc71, #27ae60); padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold;">${availableCount}</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.9);">AVAILABLE</div>
+                </div>
+                <div style="flex: 1; background: linear-gradient(135deg, #3498db, #2980b9); padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="font-size: 32px; font-weight: bold;">${activeCount}</div>
+                    <div style="font-size: 13px; color: rgba(255,255,255,0.9);">ON DUTY</div>
+                </div>
+            </div>
+        `;
+        
+        // Group by status
+        const idle = patrols.filter(p => p.status === 'IDLE');
+        const active = patrols.filter(p => p.status !== 'IDLE');
+        
+        if (active.length > 0) {
+            html += `<h3 style="color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 30px;">🚓 On Active Duty (${active.length})</h3>`;
+            
+            active.forEach(p => {
+                const statusColor = {
+                    'RESPONDING': '#f39c12',
+                    'ENGAGED': '#e74c3c',
+                    'RETURNING': '#9b59b6'
+                }[p.status] || '#3498db';
+                
+                html += `
+                    <div style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(155, 89, 182, 0.15)); padding: 18px; margin: 12px 0; border-left: 5px solid ${statusColor}; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div>
+                                <h4 style="margin: 0; color: #ecf0f1; font-size: 17px;">${p.name}</h4>
+                                <span style="color: #95a5a6; font-size: 12px;">${p.type.toUpperCase()}</span>
+                            </div>
+                            <span style="background: ${statusColor}; color: white; padding: 6px 12px; border-radius: 15px; font-weight: bold; font-size: 12px;">
+                                ${p.status}
+                            </span>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                            <div>
+                                <div style="color: #7f8c8d; font-size: 11px; margin-bottom: 3px;">📍 CURRENT LOCATION</div>
+                                <div style="color: #ecf0f1; font-size: 13px;">${p.currentLocation || 'Unknown'}</div>
+                            </div>
+                            ${p.targetEmergency ? `
+                                <div>
+                                    <div style="color: #7f8c8d; font-size: 11px; margin-bottom: 3px;">🎯 TARGET EMERGENCY</div>
+                                    <div style="color: #ecf0f1; font-size: 13px;">${p.targetEmergency}</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        ${p.path && p.path.length > 0 ? `
+                            <div style="margin-top: 12px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px;">
+                                <div style="color: #3498db; font-size: 11px; margin-bottom: 5px;">🗺️ ROUTE</div>
+                                <div style="color: #bdc3c7; font-size: 12px;">${p.path.join(' → ')}</div>
+                                <div style="color: #95a5a6; font-size: 11px; margin-top: 5px;">${p.pathIndex || 0}/${p.path.length} waypoints completed</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+        }
+        
+        if (idle.length > 0) {
+            html += `<h3 style="color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-top: 30px;">✅ Available Patrols (${idle.length})</h3>`;
+            
+            idle.forEach(p => {
+                html += `
+                    <div style="background: rgba(46, 204, 113, 0.15); padding: 18px; margin: 12px 0; border-left: 5px solid #2ecc71; border-radius: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4 style="margin: 0; color: #ecf0f1; font-size: 17px;">${p.name}</h4>
+                                <span style="color: #95a5a6; font-size: 12px;">${p.type.toUpperCase()}</span>
+                            </div>
+                            <span style="background: #2ecc71; color: white; padding: 6px 12px; border-radius: 15px; font-weight: bold; font-size: 12px;">
+                                READY
+                            </span>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <div style="color: #7f8c8d; font-size: 11px; margin-bottom: 3px;">📍 STATIONED AT</div>
+                            <div style="color: #ecf0f1; font-size: 13px;">${p.currentLocation || p.startNode}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
     }
     
     html += '</div>';
