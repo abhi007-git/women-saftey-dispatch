@@ -259,29 +259,22 @@ class PatrolManager {
         
         for (let patrol of [...this.patrols.values(), ...this.emergencyPatrols.values()]) {
             if (patrol.state === PATROL_STATE.EN_ROUTE && patrol.path.length > 0) {
-                // Instant jump mode - move multiple nodes per update
-                const nodesPerUpdate = 5; // Jump 5 nodes at once for visible instant movement
+                // Ultra-fast jump mode - move 5 nodes at once
+                const nodesPerUpdate = 5;
                 
-                patrol.pathProgress += movementSpeed * nodesPerUpdate;
-                patrol.eta = Math.max(0, patrol.eta - (movementSpeed * nodesPerUpdate));
+                patrol.pathProgress += nodesPerUpdate;
+                patrol.eta = Math.max(0, patrol.eta - movementSpeed);
                 
-                // Calculate current position along path
-                const totalPathTime = patrol.path.length > 1 ? patrol.eta + patrol.pathProgress : 0;
-                const progressRatio = totalPathTime > 0 ? patrol.pathProgress / totalPathTime : 1;
-                const pathIndex = Math.min(
-                    Math.floor(progressRatio * (patrol.path.length - 1)),
-                    patrol.path.length - 1
-                );
-                
-                if (pathIndex < patrol.path.length) {
-                    patrol.currentLocation = patrol.path[pathIndex].nodeId;
-                }
+                // Jump directly to node position
+                const currentIndex = Math.min(patrol.pathProgress, patrol.path.length - 1);
+                patrol.currentLocation = patrol.path[currentIndex].nodeId;
                 
                 // Reached destination
-                if (patrol.eta <= 0) {
+                if (currentIndex >= patrol.path.length - 1 || patrol.eta <= 0) {
                     patrol.state = PATROL_STATE.ENGAGED;
                     patrol.pathProgress = 0;
                     patrol.lastStateChange = Date.now();
+                    patrol.currentLocation = patrol.path[patrol.path.length - 1].nodeId;
                 }
             }
         }
@@ -541,6 +534,9 @@ function resolveEmergency(emergencyId) {
     if (emergency.assignedPatrol) {
         patrolManager.completeAssignment(emergency.assignedPatrol);
     }
+    
+    // Broadcast immediately so logs appear
+    broadcastSystemState();
     
     // Remove from active emergencies after delay
     setTimeout(() => {
