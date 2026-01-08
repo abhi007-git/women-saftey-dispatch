@@ -239,6 +239,73 @@ class ZoneIntelligenceHashTable {
             totalIncidents: totalIncidents
         };
     }
+    
+    /**
+     * Get zone details with hash information for educational display
+     */
+    getZone(zoneId) {
+        const index = this._hash(zoneId);
+        const bucket = this.table[index];
+        
+        for (let item of bucket) {
+            if (item.zoneId === zoneId) {
+                return {
+                    name: zoneId,
+                    ...item.data,
+                    hashIndex: index,
+                    bucketSize: bucket.length, // Show collision chain length
+                    lastUpdated: item.lastUpdated
+                };
+            }
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get hash table internals for visualization
+     * Shows collision chains, bucket utilization, etc.
+     */
+    getHashTableInternals() {
+        const bucketUtilization = [];
+        let totalCollisions = 0;
+        let maxChainLength = 0;
+        let usedBuckets = 0;
+        
+        for (let i = 0; i < this.table.length; i++) {
+            const bucketSize = this.table[i].length;
+            
+            if (bucketSize > 0) {
+                usedBuckets++;
+                const zones = this.table[i].map(item => ({
+                    zoneId: item.zoneId,
+                    risk: item.data.risk_level.toFixed(1),
+                    incidents: item.data.past_incident_count
+                }));
+                
+                bucketUtilization.push({
+                    index: i,
+                    size: bucketSize,
+                    zones: zones
+                });
+                
+                if (bucketSize > 1) {
+                    totalCollisions += (bucketSize - 1);
+                }
+                
+                maxChainLength = Math.max(maxChainLength, bucketSize);
+            }
+        }
+        
+        return {
+            tableSize: this.size,
+            usedBuckets: usedBuckets,
+            loadFactor: (usedBuckets / this.size).toFixed(2),
+            totalCollisions: totalCollisions,
+            maxChainLength: maxChainLength,
+            buckets: bucketUtilization.filter(b => b.size > 0).slice(0, 15) // Top 15 for display
+        };
+    }
 }
 
 module.exports = ZoneIntelligenceHashTable;

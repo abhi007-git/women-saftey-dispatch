@@ -1107,3 +1107,397 @@ function createSVGElement(tag, attributes = {}) {
 
 // Make showEmergencyDetails available globally for onclick handlers
 window.showEmergencyDetails = showEmergencyDetails;
+
+// ==================================================
+// PANEL MODAL FUNCTIONS (Detailed View)
+// ==================================================
+
+function openPanelModal(panelType) {
+    const modal = document.getElementById('panelModal');
+    const title = document.getElementById('panelModalTitle');
+    const body = document.getElementById('panelModalBody');
+    
+    if (!systemState) {
+        body.innerHTML = '<p style="text-align: center; padding: 20px;">Loading...</p>';
+        return;
+    }
+    
+    switch(panelType) {
+        case 'priorityQueue':
+            title.textContent = '📊 Priority Queue Analysis (Max-Heap)';
+            body.innerHTML = renderPriorityQueueModal();
+            break;
+        case 'systemMetrics':
+            title.textContent = '📈 System Performance Metrics';
+            body.innerHTML = renderSystemMetricsModal();
+            break;
+        case 'zoneIntelligence':
+            title.textContent = '🗂️ Hash Table Internals & Zone Intelligence';
+            body.innerHTML = renderZoneIntelligenceModal();
+            break;
+        case 'dijkstraAnalysis':
+            title.textContent = '🛣️ Dijkstra Path Analysis History';
+            body.innerHTML = renderDijkstraModal();
+            break;
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function closePanelModal() {
+    document.getElementById('panelModal').classList.add('hidden');
+}
+
+// Priority Queue Modal Content
+function renderPriorityQueueModal() {
+    const history = systemState.resolutionHistory || [];
+    const currentQueue = systemState.emergencyQueue || [];
+    
+    let html = '<div style="max-height: 600px; overflow-y: auto;">';
+    
+    // Current Queue
+    html += `
+        <div style="margin-bottom: 30px;">
+            <h3 style="color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                🔴 Current Emergency Queue (${currentQueue.length})
+            </h3>
+            ${currentQueue.length === 0 ? 
+                '<p style="color: #7f8c8d; padding: 20px;">No emergencies in queue</p>' :
+                currentQueue.map((e, idx) => `
+                    <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #3498db;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong style="font-size: 16px;">#${idx + 1} - ${e.id}</strong>
+                            <span style="background: #3498db; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold;">
+                                Priority: ${e.priority.toFixed(1)}
+                            </span>
+                        </div>
+                        <div style="margin-top: 10px; color: #bdc3c7;">
+                            <div><strong>Type:</strong> ${e.distress_type.toUpperCase()}</div>
+                            <div><strong>Location:</strong> ${e.nodeId} (${e.location})</div>
+                            <div style="margin-top: 10px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px;">
+                                <div style="color: #f39c12;"><strong>📊 Priority Calculation Breakdown:</strong></div>
+                                <div style="margin-left: 15px; font-size: 13px;">
+                                    • <strong>Severity Score:</strong> ${e.distress_type === 'assault' || e.distress_type === 'kidnap' ? '50' : '30'} points (${e.distress_type} emergency)
+                                    <br>• <strong>Time Waiting:</strong> ${Math.min(((Date.now() - e.timestamp) / 1000) * 2, 30).toFixed(1)} points (increases 2 pts/sec, max 30)
+                                    <br>• <strong>Zone Risk Multiplier:</strong> ${(e.zone_risk_level * 5).toFixed(1)} points (${e.zone_risk_level.toFixed(1)}/10 risk × 5)
+                                    <br>• <strong>Availability Bonus:</strong> 10 points (patrol available)
+                                </div>
+                                <div style="margin-top: 5px; color: #2ecc71; font-weight: bold;">
+                                    = Total Priority: ${e.priority.toFixed(1)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')
+            }
+        </div>
+    `;
+    
+    // Resolution History
+    html += `
+        <div style="margin-bottom: 30px;">
+            <h3 style="color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 10px;">
+                ✅ Recently Resolved (Last ${Math.min(history.length, 10)})
+            </h3>
+            ${history.length === 0 ?
+                '<p style="color: #7f8c8d; padding: 20px;">No resolution history yet</p>' :
+                history.slice(0, 10).map(h => `
+                    <div style="background: rgba(46, 204, 113, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #2ecc71;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>${h.id}</strong>
+                            <span style="color: #7f8c8d; font-size: 12px;">${new Date(h.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div style="margin-top: 10px; color: #bdc3c7; font-size: 14px;">
+                            <div><strong>🚨 Type:</strong> ${h.distressType.toUpperCase()} at ${h.location}</div>
+                            <div><strong>🚓 Saved by:</strong> ${h.patrolName} (${h.patrolType})</div>
+                            <div><strong>⏱️ Response Time:</strong> ${h.responseTime.toFixed(1)}s | Queue Position: #${h.queuePosition}</div>
+                            <div style="margin-top: 10px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px;">
+                                <div style="color: #f39c12;"><strong>📊 How It Was Prioritized:</strong></div>
+                                <div style="margin-left: 15px; font-size: 12px;">
+                                    • Severity: ${h.priorityBreakdown.severityScore} pts
+                                    <br>• Wait Time: ${h.priorityBreakdown.timeScore.toFixed(1)} pts
+                                    <br>• Zone Risk: ${h.priorityBreakdown.zoneRisk.toFixed(1)} pts (risk ${h.zoneRisk.toFixed(1)}/10)
+                                    <br>• Availability: ${h.priorityBreakdown.availabilityBonus} pts
+                                </div>
+                                <div style="margin-top: 5px; color: #e74c3c; font-weight: bold;">
+                                    = Final Priority: ${h.priority.toFixed(1)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')
+            }
+        </div>
+    `;
+    
+    html += '</div>';
+    return html;
+}
+
+// System Metrics Modal
+function renderSystemMetricsModal() {
+    const history = systemState.resolutionHistory || [];
+    const patrols = systemState.patrols || [];
+    
+    // Calculate metrics
+    const avgResponseTime = history.length > 0 ?
+        (history.reduce((sum, h) => sum + h.responseTime, 0) / history.length).toFixed(1) : '0';
+    
+    const typeBreakdown = {};
+    history.forEach(h => {
+        typeBreakdown[h.distressType] = (typeBreakdown[h.distressType] || 0) + 1;
+    });
+    
+    const patrolStats = {};
+    patrols.forEach(p => {
+        const resolved = history.filter(h => h.patrolId === p.id);
+        if (resolved.length > 0) {
+            const avgTime = resolved.reduce((sum, h) => sum + h.responseTime, 0) / resolved.length;
+            patrolStats[p.name] = {
+                count: resolved.length,
+                avgTime: avgTime.toFixed(1)
+            };
+        }
+    });
+    
+    let html = '<div style="max-height: 600px; overflow-y: auto;">';
+    
+    // Overall Stats
+    html += `
+        <div style="background: rgba(52, 152, 219, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h3 style="color: #3498db; margin-top: 0;">📊 Overall Performance</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Total Resolved</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #2ecc71;">${history.length}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Avg Response Time</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #3498db;">${avgResponseTime}s</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Active Patrols</div>
+                    <div style="font-size: 32px; font-weight: bold; color: #f39c12;">${patrols.filter(p => p.state !== 'IDLE').length}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Emergency Type Breakdown
+    html += `
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #e74c3c;">🚨 Emergency Type Breakdown</h3>
+            ${Object.keys(typeBreakdown).length === 0 ? 
+                '<p style="color: #7f8c8d;">No data yet</p>' :
+                Object.entries(typeBreakdown).map(([type, count]) => {
+                    const percent = ((count / history.length) * 100).toFixed(1);
+                    return `
+                        <div style="margin: 10px 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span style="text-transform: uppercase; font-weight: bold;">${type}</span>
+                                <span>${count} (${percent}%)</span>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); height: 20px; border-radius: 10px; overflow: hidden;">
+                                <div style="background: #e74c3c; height: 100%; width: ${percent}%; transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')
+            }
+        </div>
+    `;
+    
+    // Patrol Performance
+    html += `
+        <div>
+            <h3 style="color: #2ecc71;">🚓 Patrol Performance</h3>
+            ${Object.keys(patrolStats).length === 0 ?
+                '<p style="color: #7f8c8d;">No data yet</p>' :
+                Object.entries(patrolStats).map(([name, stats]) => `
+                    <div style="background: rgba(46, 204, 113, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #2ecc71;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong>${name}</strong>
+                            <span style="color: #7f8c8d;">${stats.count} resolved</span>
+                        </div>
+                        <div style="margin-top: 5px; color: #bdc3c7;">
+                            Avg Response: ${stats.avgTime}s
+                        </div>
+                    </div>
+                `).join('')
+            }
+        </div>
+    `;
+    
+    html += '</div>';
+    return html;
+}
+
+// Zone Intelligence Modal (Hash Table Internals)
+function renderZoneIntelligenceModal() {
+    const zones = systemState.zoneIntelligence || [];
+    const internals = systemState.hashTableInternals || {};
+    
+    let html = '<div style="max-height: 600px; overflow-y: auto;">';
+    
+    // Hash Table Statistics
+    html += `
+        <div style="background: rgba(155, 89, 182, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <h3 style="color: #9b59b6; margin-top: 0;">📊 Hash Table Performance</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Table Size</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #9b59b6;">${internals.tableSize || 50}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Used Buckets</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #3498db;">${internals.usedBuckets || 0}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Load Factor</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #2ecc71;">${internals.loadFactor || '0.00'}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Collisions</div>
+                    <div style="font-size: 28px; font-weight: bold; color: ${(internals.totalCollisions || 0) > 5 ? '#e74c3c' : '#2ecc71'};">${internals.totalCollisions || 0}</div>
+                </div>
+                <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
+                    <div style="color: #7f8c8d; font-size: 12px;">Max Chain Length</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #f39c12;">${internals.maxChainLength || 0}</div>
+                </div>
+            </div>
+            <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px; font-size: 13px; color: #bdc3c7;">
+                <strong style="color: #f39c12;">💡 What This Means:</strong><br>
+                • <strong>Load Factor:</strong> ${((internals.loadFactor || 0) * 100).toFixed(0)}% of buckets are occupied (ideal: 50-75%)<br>
+                • <strong>Collisions:</strong> ${internals.totalCollisions || 0} zones share buckets (handled by chaining)<br>
+                • <strong>Performance:</strong> Average lookup is still O(1) with ${internals.maxChainLength || 0}-node max chain
+            </div>
+        </div>
+    `;
+    
+    // Collision Chains
+    if (internals.buckets && internals.buckets.length > 0) {
+        html += `
+            <div style="margin-bottom: 20px;">
+                <h3 style="color: #e67e22;">🔗 Collision Chains (Buckets with Multiple Zones)</h3>
+                <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
+                    Showing buckets where multiple zones hash to same index (handled by chaining)
+                </div>
+                ${internals.buckets.filter(b => b.size > 1).map(bucket => `
+                    <div style="background: rgba(230, 126, 34, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #e67e22;">
+                        <div style="font-weight: bold; color: #e67e22;">
+                            Bucket #${bucket.index} → ${bucket.size} zones (collision chain length: ${bucket.size})
+                        </div>
+                        <div style="margin-top: 10px; margin-left: 15px;">
+                            ${bucket.zones.map((z, idx) => `
+                                <div style="padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);">
+                                    ${idx + 1}. <strong>${z.zoneId}</strong> → Risk: ${z.risk}/10 | Incidents: ${z.incidents}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    // High Risk Zones
+    const highRiskZones = zones.filter(z => z.risk_level >= 7).sort((a, b) => b.risk_level - a.risk_level);
+    html += `
+        <div>
+            <h3 style="color: #e74c3c;">⚠️ High-Risk Zones (Risk ≥ 7/10)</h3>
+            ${highRiskZones.length === 0 ?
+                '<p style="color: #7f8c8d;">No high-risk zones currently</p>' :
+                highRiskZones.map(zone => `
+                    <div style="background: rgba(231, 76, 60, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #e74c3c;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <strong style="font-size: 16px;">${zone.zoneId}</strong>
+                            <span style="background: #e74c3c; color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold;">
+                                ${zone.risk_level.toFixed(1)}/10
+                            </span>
+                        </div>
+                        <div style="margin-top: 10px; color: #bdc3c7; font-size: 14px;">
+                            <div><strong>📊 Past Incidents:</strong> ${zone.past_incident_count}</div>
+                            <div><strong>🚨 Dominant Type:</strong> ${zone.dominant_distress_type.toUpperCase()}</div>
+                            <div><strong>⏱️ Avg Response:</strong> ${zone.average_response_time.toFixed(1)}s</div>
+                            <div style="margin-top: 5px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 3px; font-size: 12px;">
+                                <strong style="color: #f39c12;">🎯 Impact on Routing:</strong><br>
+                                Dijkstra applies <span style="color: #e74c3c; font-weight: bold;">3x time penalty</span> to edges through this zone
+                            </div>
+                        </div>
+                    </div>
+                `).join('')
+            }
+        </div>
+    `;
+    
+    html += '</div>';
+    return html;
+}
+
+// Dijkstra Analysis Modal
+function renderDijkstraModal() {
+    const history = systemState.resolutionHistory || [];
+    
+    let html = '<div style="max-height: 600px; overflow-y: auto;">';
+    
+    if (history.length === 0) {
+        html += '<p style="text-align: center; color: #7f8c8d; padding: 40px;">No path analysis data yet. Paths will appear as emergencies are resolved.</p>';
+    } else {
+        html += `
+            <h3 style="color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
+                🛣️ Last ${Math.min(history.length, 10)} Pathfinding Decisions
+            </h3>
+        `;
+        
+        history.slice(0, 10).forEach((h, idx) => {
+            const dangerPenalty = h.dangerZonesAvoided * 3; // Estimated time added/saved
+            
+            html += `
+                <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; margin: 15px 0; border-left: 4px solid #3498db;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong style="font-size: 16px;">${idx + 1}. ${h.patrolName} → ${h.id}</strong>
+                        <span style="color: #7f8c8d; font-size: 12px;">${new Date(h.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    
+                    <div style="margin-top: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px;">
+                        <div style="color: #f39c12; font-weight: bold; margin-bottom: 10px;">📊 Path Analysis:</div>
+                        <div style="color: #bdc3c7; font-size: 14px; line-height: 1.8;">
+                            <div><strong>Path Length:</strong> ${h.pathLength} nodes</div>
+                            <div><strong>Total Time:</strong> ${h.totalTime}s</div>
+                            <div><strong>Algorithm:</strong> Dijkstra (Risk-Weighted Shortest Path)</div>
+                            <div><strong>Nodes Explored:</strong> ~${h.alternativePathsConsidered} (shows algorithm efficiency)</div>
+                        </div>
+                        
+                        <div style="margin-top: 15px; padding: 10px; background: rgba(155, 89, 182, 0.2); border-left: 3px solid #9b59b6; border-radius: 3px;">
+                            <div style="color: #9b59b6; font-weight: bold; margin-bottom: 8px;">🎯 Why This Path?</div>
+                            <ul style="margin: 0; padding-left: 20px; color: #bdc3c7; font-size: 13px; line-height: 1.6;">
+                                <li>Danger zones in path: <strong style="color: ${h.dangerZonesAvoided > 0 ? '#e74c3c' : '#2ecc71'};">${h.dangerZonesAvoided}</strong></li>
+                                <li>Zone risk at destination: <strong>${h.zoneRisk.toFixed(1)}/10</strong></li>
+                                ${h.dangerZonesAvoided > 0 ? 
+                                    `<li style="color: #e74c3c;">⚠️ Unavoidable danger zones (safest path still goes through ${h.dangerZonesAvoided} risky areas)</li>` :
+                                    `<li style="color: #2ecc71;">✓ Clean path - no danger zones crossed</li>`
+                                }
+                                <li>Estimated danger penalty: ~${dangerPenalty}s added to travel time</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="margin-top: 10px; padding: 10px; background: rgba(46, 204, 113, 0.2); border-left: 3px solid #2ecc71; border-radius: 3px;">
+                            <div style="color: #2ecc71; font-weight: bold; margin-bottom: 5px;">✅ Outcome:</div>
+                            <div style="color: #bdc3c7; font-size: 13px;">
+                                Emergency resolved in <strong>${h.responseTime.toFixed(1)}s</strong> | 
+                                Zone had ${h.zonePastIncidents} past incidents
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// Make functions globally available
+window.openPanelModal = openPanelModal;
+window.closePanelModal = closePanelModal;

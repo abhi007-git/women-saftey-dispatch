@@ -54,6 +54,10 @@ const DEPLOYMENT = {
     EMERGENCY_UNIT_QUEUE_THRESHOLD: 5      // Deploy if 5+ total alerts waiting
 };
 
+// Resolution History (for showing DSA usage)
+const resolutionHistory = [];
+const MAX_HISTORY = 50; // Keep last 50 resolutions
+
 // Import DSA components
 const ZoneIntelligenceHashTable = require('./dsa/HashTable');
 const EmergencyPriorityQueue = require('./dsa/PriorityQueue');
@@ -470,6 +474,55 @@ function resolveEmergency(emergencyId) {
     
     const patrol = patrolManager.patrols.get(emergency.assignedPatrol) || patrolManager.emergencyPatrols.get(emergency.assignedPatrol);
     
+    // Save resolution history BEFORE clearing data
+    if (patrol && emergency.route) {
+        const zone = zoneIntelligence.getZone(emergency.nodeId);
+        const historyEntry = {
+            id: emergency.id,
+            timestamp: new Date().toISOString(),
+            // Emergency details
+            distressType: emergency.distress_type,
+            location: emergency.location,
+            nodeId: emergency.nodeId,
+            // Priority Queue data
+            priority: emergency.priority,
+            priorityBreakdown: {
+                severityScore: emergency.distress_type === 'assault' || emergency.distress_type === 'kidnap' ? 50 : 30,
+                timeScore: Math.min(((Date.now() - emergency.timestamp) / 1000) * 2, 30),
+                zoneRisk: zone ? zone.riskLevel * 5 : 0,
+                availabilityBonus: 10
+            },
+            queuePosition: emergency.queuePosition || 'N/A',
+            // Patrol details
+            patrolId: patrol.id,
+            patrolName: patrol.name,
+            patrolType: patrol.isEmergencyUnit ? 'Emergency Unit' : 'Regular Patrol',
+            // Dijkstra details
+            pathTaken: emergency.route.path,
+            pathLength: emergency.route.path.length,
+            totalTime: emergency.route.totalTime,
+            dangerZonesAvoided: emergency.route.dangerZonesInPath || 0,
+            alternativePathsConsidered: emergency.route.nodesVisited || 0,
+            // Zone Intelligence (Hash Table)
+            zoneRisk: zone ? zone.riskLevel : 0,
+            zonePastIncidents: zone ? zone.incidentCount : 0,
+            zoneDominantType: zone ? zone.dominantDistressType : 'N/A',
+            hashBucket: zone ? zone.hashIndex : 'N/A',
+            // Response metrics
+            responseTime: emergency.responseTime,
+            resolvedAt: emergency.resolvedAt
+        };
+        
+        resolutionHistory.unshift(historyEntry);
+        
+        // Keep only last MAX_HISTORY entries
+        if (resolutionHistory.length > MAX_HISTORY) {
+            resolutionHistory.pop();
+        }
+        
+        console.log(`📊 History saved: ${emergency.id} | Total history: ${resolutionHistory.length}`);
+    }
+    
     // Update zone intelligence
     zoneIntelligence.updateZoneRisk(
         emergency.nodeId,
@@ -612,6 +665,8 @@ function getSystemState() {
         activeEmergencies: Array.from(activeEmergencies.values()),
         patrols: patrolManager.getAllPatrolStatuses(),
         zoneIntelligence: zoneIntelligence.getAllZones(),
+        hashTableInternals: zoneIntelligence.getHashTableInternals(), // Expose hash table structure
+        resolutionHistory: resolutionHistory.slice(0, 20), // Last 20 resolutions for display
         statistics: {
             queue: emergencyQueue.getStatistics(),
             zones: zoneIntelligence.getStatistics(),
