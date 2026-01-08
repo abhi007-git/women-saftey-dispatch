@@ -370,35 +370,55 @@ function renderNodes(nodes, dangerZones) {
         
         const nodeG = createSVGElement('g', {
             class: 'node',
-            'data-node-id': node.id
+            'data-node-id': node.id,
+            style: 'cursor: pointer;' // Visual feedback that node is clickable
         });
         
-        // Node circle
+        // Node circle with hover effect
         const circle = createSVGElement('circle', {
             class: 'node-circle',
             cx: node.x,
             cy: node.y,
             r: isDanger ? '12' : '8',
-            fill: isDanger ? 'rgba(233, 69, 96, 0.3)' : 'rgba(52, 152, 219, 0.3)',
+            fill: isDanger ? 'rgba(233, 69, 96, 0.5)' : 'rgba(52, 152, 219, 0.3)',
             stroke: isDanger ? '#e94560' : '#3498db',
-            'stroke-width': '2'
+            'stroke-width': isDanger ? '3' : '2'
         });
         
-        // Node label
+        // Node label with color coding
         const text = createSVGElement('text', {
             class: 'node-label',
             x: node.x,
             y: node.y - 15,
             'text-anchor': 'middle',
-            fill: '#bdc3c7'
+            fill: isDanger ? '#e94560' : '#bdc3c7',
+            'font-weight': isDanger ? 'bold' : 'normal'
         });
         text.textContent = node.name || node.id;
         
         nodeG.appendChild(circle);
         nodeG.appendChild(text);
         
-        // Click to toggle danger zone
-        nodeG.addEventListener('click', () => toggleDangerZone(node.id, !isDanger));
+        // Click to toggle danger zone with visual feedback
+        nodeG.addEventListener('click', () => {
+            toggleDangerZone(node.id, !isDanger);
+            showNotification(
+                isDanger ? '✓ Zone Normalized' : '⚠️ Danger Zone Activated',
+                `${node.name || node.id} is now ${isDanger ? 'safe' : 'a danger zone'}`,
+                isDanger ? 'info' : 'warning'
+            );
+        });
+        
+        // Add hover effect
+        nodeG.addEventListener('mouseenter', () => {
+            circle.setAttribute('stroke-width', isDanger ? '4' : '3');
+            circle.setAttribute('fill', isDanger ? 'rgba(233, 69, 96, 0.7)' : 'rgba(52, 152, 219, 0.5)');
+        });
+        
+        nodeG.addEventListener('mouseleave', () => {
+            circle.setAttribute('stroke-width', isDanger ? '3' : '2');
+            circle.setAttribute('fill', isDanger ? 'rgba(233, 69, 96, 0.5)' : 'rgba(52, 152, 219, 0.3)');
+        });
         
         nodeGroup.appendChild(nodeG);
     });
@@ -1000,23 +1020,49 @@ function resetSystem() {
             type: 'RESET_SYSTEM'
         }));
         
-        // Immediately clear client-side state
+        // Immediately clear ALL client-side state
         if (systemState) {
-            systemState.emergencies = [];
+            systemState.activeEmergencies = [];
             systemState.emergencyQueue = [];
             systemState.resolutionHistory = [];
+            systemState.zoneIntelligence = [];
             if (systemState.hashTableInternals) {
                 systemState.hashTableInternals.zones = [];
+                systemState.hashTableInternals.usedBuckets = 0;
+                systemState.hashTableInternals.loadFactor = 0;
+                systemState.hashTableInternals.totalCollisions = 0;
+                systemState.hashTableInternals.maxChainLength = 0;
+                systemState.hashTableInternals.buckets = [];
             }
         }
         
-        // Clear visuals
+        // Immediately clear ALL UI sections
+        
+        // 1. Clear patrol paths
         const pathGroup = document.getElementById('patrolPaths');
         if (pathGroup) pathGroup.innerHTML = '';
         
-        // Clear emergency list
+        // 2. Clear emergency list and counter
         const emergencyList = document.getElementById('emergencyList');
+        const emergencyCount = document.getElementById('emergencyCount');
         if (emergencyList) emergencyList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No active emergencies</p>';
+        if (emergencyCount) emergencyCount.textContent = '0';
+        
+        // 3. Clear priority queue
+        const queueList = document.getElementById('priorityQueueList');
+        const queueSize = document.getElementById('queueSize');
+        if (queueList) queueList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Queue empty</p>';
+        if (queueSize) queueSize.textContent = '0';
+        
+        // 4. Clear zone intelligence (hash table section)
+        const zoneList = document.getElementById('zoneIntelligenceList');
+        const zoneCount = document.getElementById('zoneCount');
+        if (zoneList) zoneList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No zone data yet</p>';
+        if (zoneCount) zoneCount.textContent = '0';
+        
+        // 5. Clear resolution history
+        const historyList = document.getElementById('historyList');
+        if (historyList) historyList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No resolution history</p>';
         
         // Request fresh state from server
         setTimeout(() => {
@@ -1024,7 +1070,7 @@ function resetSystem() {
         }, 100);
         
         showNotification('✓ System Reset', 'All emergencies and historical data cleared', 'success');
-        console.log('✓ Reset message sent successfully');
+        console.log('✓ Reset message sent successfully - all sections cleared');
     } else {
         console.error('❌ WebSocket not connected! State:', ws.readyState);
         showNotification('❌ Connection Error', 'Not connected to server. Please refresh the page.', 'error');
@@ -1318,70 +1364,87 @@ function renderSystemMetricsModal() {
     return html;
 }
 
-// Zone Intelligence Modal (Hash Table Internals)
+// Zone Intelligence Modal (Database Overview)
 function renderZoneIntelligenceModal() {
     const zones = systemState.zoneIntelligence || [];
     const internals = systemState.hashTableInternals || {};
     
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
     
-    // Hash Table Statistics
+    // Database Overview Statistics
+    const totalIncidents = zones.reduce((sum, z) => sum + z.past_incident_count, 0);
+    const avgRisk = zones.length > 0 ? (zones.reduce((sum, z) => sum + z.risk_level, 0) / zones.length) : 0;
+    const highRiskCount = zones.filter(z => z.risk_level >= 7).length;
+    const mediumRiskCount = zones.filter(z => z.risk_level >= 4 && z.risk_level < 7).length;
+    
     html += `
         <div style="background: rgba(155, 89, 182, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h3 style="color: #9b59b6; margin-top: 0;">📊 Hash Table Performance</h3>
+            <h3 style="color: #9b59b6; margin-top: 0;">📊 Zone Intelligence Overview</h3>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
                 <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
-                    <div style="color: #7f8c8d; font-size: 12px;">Table Size</div>
-                    <div style="font-size: 28px; font-weight: bold; color: #9b59b6;">${internals.tableSize || 50}</div>
+                    <div style="color: #7f8c8d; font-size: 12px;">Total Zones Tracked</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #9b59b6;">${zones.length}</div>
                 </div>
                 <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
-                    <div style="color: #7f8c8d; font-size: 12px;">Used Buckets</div>
-                    <div style="font-size: 28px; font-weight: bold; color: #3498db;">${internals.usedBuckets || 0}</div>
+                    <div style="color: #7f8c8d; font-size: 12px;">High Risk Zones</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #e74c3c;">${highRiskCount}</div>
+                    <div style="font-size: 10px; color: #7f8c8d;">(≥7/10)</div>
                 </div>
                 <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
-                    <div style="color: #7f8c8d; font-size: 12px;">Load Factor</div>
-                    <div style="font-size: 28px; font-weight: bold; color: #2ecc71;">${internals.loadFactor || '0.00'}</div>
+                    <div style="color: #7f8c8d; font-size: 12px;">Medium Risk Zones</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #f39c12;">${mediumRiskCount}</div>
+                    <div style="font-size: 10px; color: #7f8c8d;">(4-7/10)</div>
                 </div>
                 <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
-                    <div style="color: #7f8c8d; font-size: 12px;">Collisions</div>
-                    <div style="font-size: 28px; font-weight: bold; color: ${(internals.totalCollisions || 0) > 5 ? '#e74c3c' : '#2ecc71'};">${internals.totalCollisions || 0}</div>
+                    <div style="color: #7f8c8d; font-size: 12px;">Total Incidents</div>
+                    <div style="font-size: 28px; font-weight: bold; color: #3498db;">${totalIncidents}</div>
                 </div>
                 <div style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; text-align: center;">
-                    <div style="color: #7f8c8d; font-size: 12px;">Max Chain Length</div>
-                    <div style="font-size: 28px; font-weight: bold; color: #f39c12;">${internals.maxChainLength || 0}</div>
+                    <div style="color: #7f8c8d; font-size: 12px;">Avg Risk Level</div>
+                    <div style="font-size: 28px; font-weight: bold; color: ${avgRisk >= 7 ? '#e74c3c' : avgRisk >= 4 ? '#f39c12' : '#2ecc71'};">${avgRisk.toFixed(1)}/10</div>
                 </div>
             </div>
             <div style="margin-top: 15px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 5px; font-size: 13px; color: #bdc3c7;">
-                <strong style="color: #f39c12;">💡 What This Means:</strong><br>
-                • <strong>Load Factor:</strong> ${((internals.loadFactor || 0) * 100).toFixed(0)}% of buckets are occupied (ideal: 50-75%)<br>
-                • <strong>Collisions:</strong> ${internals.totalCollisions || 0} zones share buckets (handled by chaining)<br>
-                • <strong>Performance:</strong> Average lookup is still O(1) with ${internals.maxChainLength || 0}-node max chain
+                <strong style="color: #f39c12;">💡 How Zone Intelligence Works:</strong><br>
+                • <strong>Learning System:</strong> Every emergency teaches the system which areas need more attention<br>
+                • <strong>Risk Calculation:</strong> Higher risk = more frequent incidents + more severe emergency types<br>
+                • <strong>Smart Routing:</strong> High-risk zones get 3x priority weight for faster patrol dispatch
             </div>
         </div>
     `;
     
-    // Collision Chains
-    if (internals.buckets && internals.buckets.length > 0) {
+    // All Zones Summary
+    const allZonesSorted = zones.sort((a, b) => b.risk_level - a.risk_level);
+    if (allZonesSorted.length > 0) {
         html += `
             <div style="margin-bottom: 20px;">
-                <h3 style="color: #e67e22;">🔗 Collision Chains (Buckets with Multiple Zones)</h3>
+                <h3 style="color: #3498db;">📍 All Tracked Zones (Sorted by Risk)</h3>
                 <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 10px;">
-                    Showing buckets where multiple zones hash to same index (handled by chaining)
+                    Showing all ${allZonesSorted.length} zones with incident data
                 </div>
-                ${internals.buckets.filter(b => b.size > 1).map(bucket => `
-                    <div style="background: rgba(230, 126, 34, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #e67e22;">
-                        <div style="font-weight: bold; color: #e67e22;">
-                            Bucket #${bucket.index} → ${bucket.size} zones (collision chain length: ${bucket.size})
-                        </div>
-                        <div style="margin-top: 10px; margin-left: 15px;">
-                            ${bucket.zones.map((z, idx) => `
-                                <div style="padding: 5px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);">
-                                    ${idx + 1}. <strong>${z.zoneId}</strong> → Risk: ${z.risk}/10 | Incidents: ${z.incidents}
+                <div style="max-height: 300px; overflow-y: auto;">
+                    ${allZonesSorted.map((zone, idx) => {
+                        const riskColor = zone.risk_level >= 7 ? '#e74c3c' : zone.risk_level >= 4 ? '#f39c12' : '#2ecc71';
+                        return `
+                        <div style="background: rgba(52, 152, 219, 0.1); padding: 12px; margin: 8px 0; border-left: 4px solid ${riskColor}; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: bold; color: #3498db;">${idx + 1}. ${zone.zoneId}</div>
+                                <div style="font-size: 12px; color: #7f8c8d; margin-top: 3px;">
+                                    ${zone.past_incident_count} incidents | ${zone.dominant_distress_type}
                                 </div>
-                            `).join('')}
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 20px; font-weight: bold; color: ${riskColor};">
+                                    ${zone.risk_level.toFixed(1)}/10
+                                </div>
+                                <div style="font-size: 11px; color: #7f8c8d;">
+                                    ${zone.average_response_time.toFixed(0)}s avg
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                `).join('')}
+                        `;
+                    }).join('')}
+                </div>
             </div>
         `;
     }
