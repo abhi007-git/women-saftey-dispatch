@@ -41,7 +41,7 @@ const PATROL_STATE = {
 // Timing Constants (all in seconds)
 const TIMING = {
     PATROL_MOVEMENT_SPEED: 0.3,    // Seconds per map update (slower for visibility)
-    RESOLUTION_TIME: 3,            // Time spent at emergency scene (3 second delay)
+    RESOLUTION_TIME: 1,            // Minimum time to reach emergency (1 second delay)
     RETURN_TIME: 2,                // Time to return to station
     PRIORITY_RECALC_INTERVAL: 1,   // How often to recalculate priorities
     RISK_DECAY_INTERVAL: 60,       // How often zone risks decay
@@ -245,7 +245,7 @@ class PatrolManager {
         patrol.assignedEmergency = emergency.id;
         patrol.path = route.path;
         patrol.pathProgress = 0;
-        patrol.eta = route.totalTime + 3; // Add 3 second delay to travel time
+        patrol.eta = route.totalTime + 1; // Add 1 second minimum delay to travel time
         patrol.lastStateChange = Date.now();
         
         return true;
@@ -312,8 +312,11 @@ class PatrolManager {
     /**
      * Log emergency resolution with full details
      */
-    logEmergencyResolution(emergency, patrol, responseTime) {
+    logEmergencyResolution(emergency, patrol, responseTime, routeInfo) {
         const zone = zoneIntelligence.getZone(emergency.nodeId);
+        
+        // Use route info if path is cleared from patrol
+        const pathLength = routeInfo?.path?.length || patrol.path?.length || 0;
         
         const logEntry = {
             id: emergency.id,
@@ -326,7 +329,7 @@ class PatrolManager {
             responseTime: responseTime.toFixed(2) + 's',
             zoneRisk: zone ? zone.riskLevel.toFixed(2) : 'N/A',
             hashTableUsage: zone ? `Zone ${zone.name}: ${zone.incidentCount} incidents, Risk ${zone.riskLevel.toFixed(2)}` : 'Zone data unavailable',
-            pathLength: patrol.path ? patrol.path.length + ' nodes' : 'N/A',
+            pathLength: pathLength > 0 ? pathLength + ' nodes' : 'N/A',
             algorithm: 'Dijkstra Shortest Path',
             queuePosition: emergency.queuePosition || 'N/A'
         };
@@ -496,16 +499,26 @@ function assignPatrolToEmergency(emergency, patrolId, route) {
 function resolveEmergency(emergencyId) {
     const emergency = activeEmergencies.get(emergencyId);
     
-    if (!emergency) return;
+    if (!emergency) {
+        console.log('⚠️ resolveEmergency called with invalid ID:', emergencyId);
+        return;
+    }
     
     emergency.status = EMERGENCY_STATE.RESOLVED;
     emergency.resolvedAt = Date.now();
     emergency.responseTime = (emergency.resolvedAt - emergency.timestamp) / 1000;
     
-    // Create and store log entry
+    console.log('🔧 Resolving emergency:', emergencyId);
+    
+    // Create and store log entry BEFORE completing patrol assignment
     const patrol = patrolManager.patrols.get(emergency.assignedPatrol) || patrolManager.emergencyPatrols.get(emergency.assignedPatrol);
     if (patrol) {
-        patrolManager.logEmergencyResolution(emergency, patrol, emergency.responseTime);
+        console.log('   Patrol found:', patrol.id, '| Path length:', patrol.path ? patrol.path.length : 'NO PATH');
+        // Save route info before patrol is reset
+        const routeInfo = emergency.route || { path: patrol.path };
+        patrolManager.logEmergencyResolution(emergency, patrol, emergency.responseTime, routeInfo);
+    } else {
+        console.log('   ❌ NO PATROL FOUND for:', emergency.assignedPatrol);
     }
     
     // Update zone intelligence
