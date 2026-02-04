@@ -51,7 +51,7 @@ body {
     font-size: 28px;
     margin-bottom: 5px;
     font-weight: 700;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .system-status {
@@ -76,15 +76,22 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .time-display {
     font-size: 22px;
     font-weight: 700;
     color: var(--text-primary);
-    background: rgba(255,255,255,0.05);
+    background: rgba(255, 255, 255, 0.05);
     padding: 8px 16px;
     border-radius: 6px;
 }
@@ -177,7 +184,8 @@ body {
     display: flex;
     align-items: center;
     gap: 15px;
-    pointer-events: none; /* Allow clicks to pass through to parent */
+    pointer-events: none;
+    /* Allow clicks to pass through to parent */
 }
 
 .panel-expand {
@@ -188,7 +196,8 @@ body {
     border-radius: 12px;
     font-weight: 600;
     transition: all 0.2s ease;
-    pointer-events: none; /* Allow clicks to pass through */
+    pointer-events: none;
+    /* Allow clicks to pass through */
 }
 
 .panel-header:hover .panel-expand {
@@ -258,6 +267,29 @@ body {
     background: var(--accent-color);
 }
 
+.btn-toggle-edit {
+    background: linear-gradient(135deg, #f39c12, #d35400) !important;
+    color: white !important;
+    font-weight: bold !important;
+    border: none !important;
+    padding: 6px 15px !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-toggle-edit.active {
+    background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
+    box-shadow: 0 0 15px rgba(46, 204, 113, 0.4);
+}
+
+.map-panel.edit-mode {
+    border: 2px solid var(--warning-color);
+    box-shadow: 0 0 20px rgba(243, 156, 18, 0.2);
+}
+
+.map-panel.edit-mode .panel-header {
+    background: var(--warning-color);
+}
+
 .map-legend {
     position: absolute;
     top: 15px;
@@ -266,7 +298,7 @@ body {
     padding: 10px 15px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     font-size: 12px;
 }
 
@@ -284,13 +316,12 @@ body {
     height: 18px;
     border-radius: 50%;
     display: inline-block;
-    border: 2px solid rgba(255,255,255,0.3);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     flex-shrink: 0;
-}
 }
 
 .legend-icon.patrol {
-    background: var(--info-color);
+    background: #8e44ad;
 }
 
 .legend-icon.emergency {
@@ -468,9 +499,17 @@ body {
     transition: width 0.3s;
 }
 
-.risk-low { background: var(--success-color); }
-.risk-medium { background: var(--warning-color); }
-.risk-high { background: var(--danger-color); }
+.risk-low {
+    background: var(--success-color);
+}
+
+.risk-medium {
+    background: var(--warning-color);
+}
+
+.risk-high {
+    background: var(--danger-color);
+}
 
 .zone-item-stats {
     font-size: 11px;
@@ -795,8 +834,15 @@ body {
 }
 
 @keyframes patrol-glow {
-    0%, 100% { filter: drop-shadow(0 0 5px rgba(52, 152, 219, 0.8)); }
-    50% { filter: drop-shadow(0 0 15px rgba(52, 152, 219, 1)); }
+
+    0%,
+    100% {
+        filter: drop-shadow(0 0 5px rgba(52, 152, 219, 0.8));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 15px rgba(52, 152, 219, 1));
+    }
 }
 
 .emergency-marker {
@@ -943,6 +989,7 @@ body {
         transform: translateX(400px);
         opacity: 0;
     }
+
     to {
         transform: translateX(0);
         opacity: 1;
@@ -1041,6 +1088,7 @@ body {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -1051,6 +1099,7 @@ body {
         transform: translateY(-50px);
         opacity: 0;
     }
+
     to {
         transform: translateY(0);
         opacity: 1;
@@ -1076,7 +1125,7 @@ body {
     padding: 12px;
     margin-bottom: 10px;
     border-left: 4px solid #3498db;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s;
 }
 
@@ -1149,7 +1198,7 @@ body {
     padding: 16px;
     margin-bottom: 16px;
     border-left: 5px solid #3498db;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .log-entry-header {
@@ -1218,14 +1267,14 @@ body {
         grid-template-columns: 1fr;
         grid-template-rows: 500px 1fr;
     }
-    
+
     .right-panels {
         grid-column: 1;
         flex-direction: row;
         flex-wrap: wrap;
         overflow-y: visible;
     }
-    
+
     .right-panels .panel {
         flex: 1;
         min-width: 300px;

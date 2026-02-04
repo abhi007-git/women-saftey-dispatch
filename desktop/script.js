@@ -10,6 +10,7 @@
 let ws;
 let systemState = null;
 let selectedEmergency = null;
+let isEditDangerZoneMode = false;
 
 // SVG elements
 let svg;
@@ -29,13 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function initializeWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}`;
-    
+
     ws = new WebSocket(wsUrl);
-    
+
     ws.onopen = () => {
         console.log('✓ Connected to dispatch server');
         updateSystemStatus(true);
-        
+
         // Send heartbeat every 30 seconds to keep connection alive
         if (window.heartbeatInterval) clearInterval(window.heartbeatInterval);
         window.heartbeatInterval = setInterval(() => {
@@ -44,7 +45,7 @@ function initializeWebSocket() {
             }
         }, 30000);
     };
-    
+
     ws.onmessage = (event) => {
         try {
             const message = JSON.parse(event.data);
@@ -53,12 +54,12 @@ function initializeWebSocket() {
             console.error('Error parsing server message:', error);
         }
     };
-    
+
     ws.onerror = (error) => {
         console.error('WebSocket error:', error);
         updateSystemStatus(false);
     };
-    
+
     ws.onclose = () => {
         console.log('Disconnected from server. Attempting reconnection...');
         updateSystemStatus(false);
@@ -69,23 +70,23 @@ function initializeWebSocket() {
 
 function handleServerMessage(message) {
     const prevEmergencies = systemState?.activeEmergencies || [];
-    
+
     switch (message.type) {
         case 'INITIAL_STATE':
         case 'STATE_UPDATE':
             systemState = message.data;
-            
+
             // Clear all visual paths when no emergencies exist
             if (!message.data.activeEmergencies || message.data.activeEmergencies.length === 0) {
                 const pathGroup = document.getElementById('patrolPaths');
                 if (pathGroup) pathGroup.innerHTML = '';
             }
-            
+
             // Detect newly assigned patrols
             const currEmergencies = message.data.activeEmergencies || [];
             currEmergencies.forEach(emergency => {
                 const prevEmergency = prevEmergencies.find(e => e.id === emergency.id);
-                
+
                 // Patrol assigned
                 if (!prevEmergency?.assignedPatrol && emergency.assignedPatrol) {
                     showNotification(
@@ -94,7 +95,7 @@ function handleServerMessage(message) {
                         'info'
                     );
                 }
-                
+
                 // Emergency resolved
                 if (prevEmergency && prevEmergency.status !== 'RESOLVED' && emergency.status === 'RESOLVED') {
                     const responseTime = emergency.responseTime ? ` in ${emergency.responseTime.toFixed(0)}s` : '';
@@ -107,7 +108,7 @@ function handleServerMessage(message) {
                     showMapSaveNotification(emergency);
                 }
             });
-            
+
             renderAllPanels();
             break;
     }
@@ -122,12 +123,12 @@ function initializeUI() {
     mapGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     mapGroup.setAttribute('id', 'mapGroup');
     svg.appendChild(mapGroup);
-    
+
     // Map controls
     document.getElementById('btnZoomIn').addEventListener('click', () => zoomMap(1.2));
     document.getElementById('btnZoomOut').addEventListener('click', () => zoomMap(0.8));
     document.getElementById('btnReset').addEventListener('click', resetMap);
-    
+
     // System controls - with error handling
     const resetBtn = document.getElementById('btnResetSystem');
     if (resetBtn) {
@@ -138,11 +139,11 @@ function initializeUI() {
     } else {
         console.error('❌ Reset button not found in DOM!');
     }
-    
+
     // Modal controls
     document.querySelector('.modal-close').addEventListener('click', closeModal);
     document.getElementById('btnResolveEmergency').addEventListener('click', resolveCurrentEmergency);
-    
+
     // Click outside modal to close
     document.getElementById('emergencyModal').addEventListener('click', (e) => {
         if (e.target.id === 'emergencyModal') {
@@ -154,15 +155,15 @@ function initializeUI() {
 function startClock() {
     function updateClock() {
         const now = new Date();
-        const timeString = now.toLocaleTimeString('en-US', { 
-            hour12: false, 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit' 
+        const timeString = now.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
         });
         document.getElementById('timeDisplay').textContent = timeString;
     }
-    
+
     updateClock();
     setInterval(updateClock, 1000);
 }
@@ -171,7 +172,7 @@ function updateSystemStatus(isOnline) {
     const statusElement = document.getElementById('systemStatus');
     const indicator = statusElement.querySelector('.status-indicator');
     const text = statusElement.querySelector('span:last-child');
-    
+
     if (isOnline) {
         indicator.classList.add('online');
         text.textContent = 'SYSTEM ONLINE';
@@ -186,16 +187,16 @@ function updateSystemStatus(isOnline) {
 function showNotification(title, message, type = 'info') {
     const container = document.getElementById('notificationContainer');
     if (!container) return;
-    
+
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.innerHTML = `
         <div class="notification-title">${title}</div>
         <div class="notification-message">${message}</div>
     `;
-    
+
     container.appendChild(notification);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         notification.style.animation = 'slideIn 0.3s ease-out reverse';
@@ -207,16 +208,16 @@ function showNotification(title, message, type = 'info') {
 
 function showMapSaveNotification(emergency) {
     if (!emergency || !systemState?.map?.nodes) return;
-    
+
     const node = systemState.map.nodes.find(n => n.id === emergency.nodeId);
     if (!node) return;
-    
+
     // Create notification element
     const notification = createSVGElement('g', {
         class: 'map-notification',
         id: `notification-${emergency.id}`
     });
-    
+
     // Background circle
     const bg = createSVGElement('circle', {
         cx: node.x,
@@ -225,7 +226,7 @@ function showMapSaveNotification(emergency) {
         fill: '#2ecc71',
         opacity: '0.9'
     });
-    
+
     // Checkmark icon
     const check = createSVGElement('text', {
         x: node.x,
@@ -236,7 +237,7 @@ function showMapSaveNotification(emergency) {
         fill: 'white'
     });
     check.textContent = '✓';
-    
+
     // Text label
     const text = createSVGElement('text', {
         x: node.x,
@@ -247,16 +248,16 @@ function showMapSaveNotification(emergency) {
         fill: '#2ecc71'
     });
     text.textContent = 'SAVED!';
-    
+
     notification.appendChild(bg);
     notification.appendChild(check);
     notification.appendChild(text);
-    
+
     // Add to map
     const svg = document.getElementById('cityMap');
     if (svg) {
         svg.appendChild(notification);
-        
+
         // Animate and remove after 3 seconds
         setTimeout(() => {
             notification.style.opacity = '0';
@@ -287,7 +288,7 @@ window.addEventListener('keydown', (event) => {
 
 function renderAllPanels() {
     if (!systemState) return;
-    
+
     renderCityMap();
     renderPriorityQueue();
     renderActiveEmergencies();
@@ -303,48 +304,48 @@ function renderAllPanels() {
 
 function renderCityMap() {
     if (!systemState || !systemState.map) return;
-    
+
     // Clear existing content
     mapGroup.innerHTML = '';
-    
+
     const { map } = systemState;
-    
+
     // Validate map data
     if (!map.nodes || !map.edges) {
         console.warn('Incomplete map data received');
         return;
     }
-    
+
     // Render edges first (so they appear behind nodes)
     renderEdges(map.edges);
-    
+
     // Render danger zones
     renderDangerZones(map.dangerZones || [], map.nodes);
-    
+
     // Render patrol paths
     renderPatrolPaths();
-    
+
     // Render nodes
     renderNodes(map.nodes, map.dangerZones || []);
-    
+
     // Render patrols
     renderPatrols();
-    
+
     // Render emergencies
     renderEmergencies();
 }
 
 function renderEdges(edges) {
     if (!edges || !systemState || !systemState.map || !systemState.map.nodes) return;
-    
+
     const edgeGroup = createSVGElement('g', { id: 'edges' });
-    
+
     edges.forEach(edge => {
         const fromNode = systemState.map.nodes.find(n => n.id === edge.from);
         const toNode = systemState.map.nodes.find(n => n.id === edge.to);
-        
+
         if (!fromNode || !toNode) return;
-        
+
         const line = createSVGElement('line', {
             class: `edge-line ${edge.isDangerZone ? 'danger' : ''}`,
             x1: fromNode.x,
@@ -353,27 +354,27 @@ function renderEdges(edges) {
             y2: toNode.y,
             'stroke-width': edge.isDangerZone ? '3' : '2'
         });
-        
+
         edgeGroup.appendChild(line);
     });
-    
+
     mapGroup.appendChild(edgeGroup);
 }
 
 function renderNodes(nodes, dangerZones) {
     if (!nodes || !dangerZones) return;
-    
+
     const nodeGroup = createSVGElement('g', { id: 'nodes' });
-    
+
     nodes.forEach(node => {
         const isDanger = dangerZones.includes(node.id);
-        
+
         const nodeG = createSVGElement('g', {
             class: 'node',
             'data-node-id': node.id,
             style: 'cursor: pointer;' // Visual feedback that node is clickable
         });
-        
+
         // Node circle with hover effect
         const circle = createSVGElement('circle', {
             class: 'node-circle',
@@ -384,7 +385,7 @@ function renderNodes(nodes, dangerZones) {
             stroke: isDanger ? '#e94560' : '#3498db',
             'stroke-width': isDanger ? '3' : '2'
         });
-        
+
         // Node label with color coding
         const text = createSVGElement('text', {
             class: 'node-label',
@@ -395,12 +396,22 @@ function renderNodes(nodes, dangerZones) {
             'font-weight': isDanger ? 'bold' : 'normal'
         });
         text.textContent = node.name || node.id;
-        
+
         nodeG.appendChild(circle);
         nodeG.appendChild(text);
-        
+
         // Click to toggle danger zone with visual feedback
         nodeG.addEventListener('click', () => {
+            if (!isEditDangerZoneMode) {
+                // If not in edit mode, maybe just show notification or do nothing
+                showNotification(
+                    'ℹ️ Info',
+                    'Activate "Edit Danger Zones" mode to modify zones.',
+                    'info'
+                );
+                return;
+            }
+
             toggleDangerZone(node.id, !isDanger);
             showNotification(
                 isDanger ? '✓ Zone Normalized' : '⚠️ Danger Zone Activated',
@@ -408,33 +419,33 @@ function renderNodes(nodes, dangerZones) {
                 isDanger ? 'info' : 'warning'
             );
         });
-        
+
         // Add hover effect
         nodeG.addEventListener('mouseenter', () => {
             circle.setAttribute('stroke-width', isDanger ? '4' : '3');
             circle.setAttribute('fill', isDanger ? 'rgba(233, 69, 96, 0.7)' : 'rgba(52, 152, 219, 0.5)');
         });
-        
+
         nodeG.addEventListener('mouseleave', () => {
             circle.setAttribute('stroke-width', isDanger ? '3' : '2');
             circle.setAttribute('fill', isDanger ? 'rgba(233, 69, 96, 0.5)' : 'rgba(52, 152, 219, 0.3)');
         });
-        
+
         nodeGroup.appendChild(nodeG);
     });
-    
+
     mapGroup.appendChild(nodeGroup);
 }
 
 function renderDangerZones(dangerZones, nodes) {
     if (!dangerZones || !nodes) return;
-    
+
     const dangerGroup = createSVGElement('g', { id: 'danger-zones' });
-    
+
     dangerZones.forEach(zoneId => {
         const node = nodes.find(n => n.id === zoneId);
         if (!node) return;
-        
+
         // Pulsing danger zone indicator
         const circle = createSVGElement('circle', {
             cx: node.x,
@@ -445,26 +456,26 @@ function renderDangerZones(dangerZones, nodes) {
             'stroke-width': '1',
             'stroke-dasharray': '4,2'
         });
-        
+
         const animate = createSVGElement('animate', {
             attributeName: 'r',
             values: '25;30;25',
             dur: '2s',
             repeatCount: 'indefinite'
         });
-        
+
         circle.appendChild(animate);
         dangerGroup.appendChild(circle);
     });
-    
+
     mapGroup.appendChild(dangerGroup);
 }
 
 function renderPatrols() {
     if (!systemState || !systemState.patrols) return;
-    
+
     const patrolGroup = createSVGElement('g', { id: 'patrols' });
-    
+
     // First, render patrol station markers (home bases)
     const stationMarkers = new Set();
     systemState.patrols.forEach(patrol => {
@@ -477,7 +488,7 @@ function renderPatrols() {
                     class: 'patrol-station',
                     'data-station-id': patrol.homeStation
                 });
-                
+
                 // Shield shape
                 const shield = createSVGElement('rect', {
                     x: stationNode.x - 12,
@@ -490,7 +501,7 @@ function renderPatrols() {
                     'stroke-width': '2',
                     opacity: '0.8'
                 });
-                
+
                 // Station icon text
                 const stationIcon = createSVGElement('text', {
                     x: stationNode.x,
@@ -501,35 +512,35 @@ function renderPatrols() {
                     fill: '#3498db'
                 });
                 stationIcon.textContent = '🏠';
-                
+
                 stationG.appendChild(shield);
                 stationG.appendChild(stationIcon);
                 patrolGroup.appendChild(stationG);
             }
         }
     });
-    
+
     // Then render mobile patrol units
     systemState.patrols.forEach(patrol => {
         if (!patrol || typeof patrol.x !== 'number' || typeof patrol.y !== 'number') return;
-        
+
         const patrolG = createSVGElement('g', {
             class: 'patrol-marker',
             'data-patrol-id': patrol.id
         });
-        
+
         // Patrol vehicle icon (HUGE and visible)
         const vehicle = createSVGElement('circle', {
             cx: patrol.x,
             cy: patrol.y,
             r: '20',
-            fill: patrol.isEmergencyUnit ? '#ff6b00' : '#00ff00',
+            fill: patrol.isEmergencyUnit ? '#ff6b00' : '#8e44ad', // Purple for regular units
             stroke: '#ffffff',
             'stroke-width': '5',
             opacity: '1',
-            filter: 'drop-shadow(0 0 15px rgba(0,255,0,1))'
+            filter: 'drop-shadow(0 0 10px rgba(142, 68, 173, 0.8))'
         });
-        
+
         // State indicator
         const stateColors = {
             'IDLE': '#2ecc71',
@@ -537,7 +548,7 @@ function renderPatrols() {
             'ENGAGED': '#e94560',
             'RETURNING': '#3498db'
         };
-        
+
         const stateIndicator = createSVGElement('circle', {
             cx: patrol.x + 10,
             cy: patrol.y - 10,
@@ -546,7 +557,7 @@ function renderPatrols() {
             stroke: '#000',
             'stroke-width': '2'
         });
-        
+
         // Patrol label
         const label = createSVGElement('text', {
             x: patrol.x,
@@ -559,26 +570,26 @@ function renderPatrols() {
             'stroke-width': '1'
         });
         label.textContent = patrol.name.split(' ')[1] || patrol.id;
-        
+
         patrolG.appendChild(vehicle);
         patrolG.appendChild(stateIndicator);
         patrolG.appendChild(label);
-        
+
         patrolGroup.appendChild(patrolG);
     });
-    
+
     mapGroup.appendChild(patrolGroup);
 }
 
 function renderEmergencies() {
     if (!systemState || !systemState.activeEmergencies || !systemState.map || !systemState.map.nodes) return;
-    
+
     const emergencyGroup = createSVGElement('g', { id: 'emergencies' });
-    
+
     systemState.activeEmergencies.forEach(emergency => {
         const node = systemState.map.nodes.find(n => n.id === emergency.nodeId);
         if (!node) return;
-        
+
         // Status-based colors
         const statusColors = {
             'PENDING': '#f39c12',     // Orange - waiting
@@ -587,13 +598,13 @@ function renderEmergencies() {
             'ENGAGED': '#e74c3c',     // Red - at scene
             'RESOLVED': '#2ecc71'     // Green - resolved
         };
-        
+
         const emergencyG = createSVGElement('g', {
             class: 'emergency-marker',
             'data-emergency-id': emergency.id,
             style: 'cursor: pointer;'
         });
-        
+
         // Larger clickable area
         const clickArea = createSVGElement('circle', {
             cx: node.x,
@@ -602,7 +613,7 @@ function renderEmergencies() {
             fill: 'transparent',
             stroke: 'none'
         });
-        
+
         // Emergency alert icon with status color
         const alert = createSVGElement('circle', {
             cx: node.x,
@@ -612,7 +623,7 @@ function renderEmergencies() {
             stroke: '#fff',
             'stroke-width': '2'
         });
-        
+
         // Exclamation mark
         const exclamation = createSVGElement('text', {
             x: node.x,
@@ -623,25 +634,25 @@ function renderEmergencies() {
             fill: '#fff'
         });
         exclamation.textContent = '!';
-        
+
         emergencyG.appendChild(clickArea);
         emergencyG.appendChild(alert);
         emergencyG.appendChild(exclamation);
-        
+
         // Click to view details
         emergencyG.addEventListener('click', () => showEmergencyDetails(emergency));
-        
+
         emergencyGroup.appendChild(emergencyG);
     });
-    
+
     mapGroup.appendChild(emergencyGroup);
 }
 
 function renderPatrolPaths() {
     if (!systemState || !systemState.patrols || !systemState.map || !systemState.map.nodes) return;
-    
+
     const pathGroup = createSVGElement('g', { id: 'patrol-paths' });
-    
+
     systemState.patrols.forEach(patrol => {
         if (patrol.path && patrol.path.length > 1 && patrol.state === 'EN_ROUTE') {
             // Get full node data with coordinates
@@ -649,12 +660,12 @@ function renderPatrolPaths() {
                 const fullNode = systemState.map.nodes.find(n => n.id === pathNode.nodeId);
                 return fullNode || pathNode;
             }).filter(node => node && typeof node.x === 'number' && typeof node.y === 'number');
-            
+
             if (pathWithCoords.length > 1) {
-                const pathData = pathWithCoords.map((node, i) => 
+                const pathData = pathWithCoords.map((node, i) =>
                     `${i === 0 ? 'M' : 'L'} ${node.x} ${node.y}`
                 ).join(' ');
-                
+
                 const path = createSVGElement('path', {
                     d: pathData,
                     stroke: patrol.isEmergencyUnit ? '#f39c12' : '#00ff00',
@@ -665,7 +676,7 @@ function renderPatrolPaths() {
                     'stroke-linecap': 'round',
                     filter: 'drop-shadow(0 0 8px rgba(0,255,0,0.8))'
                 });
-                
+
                 // Add animation for moving dashes
                 const animate = createSVGElement('animate', {
                     attributeName: 'stroke-dashoffset',
@@ -674,13 +685,13 @@ function renderPatrolPaths() {
                     dur: '1s',
                     repeatCount: 'indefinite'
                 });
-                
+
                 path.appendChild(animate);
                 pathGroup.appendChild(path);
             }
         }
     });
-    
+
     mapGroup.appendChild(pathGroup);
 }
 
@@ -691,25 +702,25 @@ function renderPatrolPaths() {
 function renderPriorityQueue() {
     const queueList = document.getElementById('priorityQueueList');
     const queueSize = document.getElementById('queueSize');
-    
+
     if (!systemState || !systemState.emergencyQueue) {
         queueSize.textContent = '0';
         queueList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Loading...</p>';
         return;
     }
-    
+
     const queue = systemState.emergencyQueue;
     queueSize.textContent = queue.length;
-    
+
     if (queue.length === 0) {
         queueList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No emergencies in queue</p>';
         return;
     }
-    
+
     queueList.innerHTML = queue.map((emergency, index) => {
         const waitTime = Math.floor((Date.now() - emergency.timestamp) / 1000);
         const priorityClass = emergency.priority >= 100 ? 'high' : emergency.priority >= 60 ? 'medium' : 'low';
-        
+
         return `
             <div class="queue-item" onclick="showEmergencyDetails(${JSON.stringify(emergency).replace(/"/g, '&quot;')})">
                 <div class="queue-item-header">
@@ -735,18 +746,18 @@ function renderActiveEmergencies() {
     const emergencyListPanel = document.getElementById('emergencyList');
     const emergencyCount = document.getElementById('emergencyCount');
     if (!emergencyListPanel) return;
-    
+
     const activeEmergencies = systemState.activeEmergencies || [];
-    
+
     if (emergencyCount) {
         emergencyCount.textContent = activeEmergencies.length;
     }
-    
+
     if (activeEmergencies.length === 0) {
         emergencyListPanel.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No active emergencies</p>';
         return;
     }
-    
+
     emergencyListPanel.innerHTML = activeEmergencies.map(emergency => {
         const waitTime = Math.floor((Date.now() - emergency.timestamp) / 1000);
         const statusColor = {
@@ -756,14 +767,14 @@ function renderActiveEmergencies() {
             'ENGAGED': '#e94560',
             'RESOLVED': '#2ecc71'
         }[emergency.status] || '#95a5a6';
-        
-        const patrolInfo = emergency.assignedPatrol ? 
-            `<div><strong>🚓 Patrol:</strong> ${emergency.assignedPatrol}</div>` : 
+
+        const patrolInfo = emergency.assignedPatrol ?
+            `<div><strong>🚓 Patrol:</strong> ${emergency.assignedPatrol}</div>` :
             '<div><strong>⏳ Status:</strong> Awaiting patrol</div>';
-        
-        const etaInfo = emergency.eta ? 
+
+        const etaInfo = emergency.eta ?
             `<div><strong>⏱️ ETA:</strong> ${Math.ceil(emergency.eta)}s</div>` : '';
-        
+
         return `
             <div class="emergency-card" style="border-left: 4px solid ${statusColor};">
                 <div class="emergency-header">
@@ -786,17 +797,17 @@ function renderActiveEmergencies() {
 function renderZoneIntelligence() {
     const zoneList = document.getElementById('zoneIntelligenceList');
     const zoneCount = document.getElementById('zoneCount');
-    
+
     const zones = systemState.zoneIntelligence
         .sort((a, b) => b.risk_level - a.risk_level)
         .slice(0, 10); // Show top 10 riskiest zones
-    
+
     zoneCount.textContent = systemState.zoneIntelligence.length;
-    
+
     zoneList.innerHTML = zones.map(zone => {
         const riskPercent = (zone.risk_level / 10) * 100;
         const riskClass = zone.risk_level >= 7 ? 'risk-high' : zone.risk_level >= 4 ? 'risk-medium' : 'risk-low';
-        
+
         return `
             <div class="zone-item">
                 <div>
@@ -830,13 +841,13 @@ function renderPatrolStatus() {
     const patrolList = document.getElementById('patrolStatusList');
     const patrolActive = document.getElementById('patrolActive');
     const patrolTotal = document.getElementById('patrolTotal');
-    
+
     const patrols = systemState.patrols;
     const activeCount = patrols.filter(p => p.state !== 'IDLE').length;
-    
+
     patrolActive.textContent = activeCount;
     patrolTotal.textContent = patrols.length;
-    
+
     patrolList.innerHTML = patrols.map(patrol => {
         return `
             <div class="patrol-item state-${patrol.state}">
@@ -861,32 +872,32 @@ function renderPatrolStatus() {
 
 function renderMetrics() {
     if (!systemState || !systemState.statistics) return;
-    
+
     const stats = systemState.statistics;
     const allEmergencies = systemState.activeEmergencies || [];
-    
+
     // Calculate average response time from resolved emergencies
     const resolvedEmergencies = allEmergencies.filter(e => e.status === 'RESOLVED' && e.responseTime);
     const avgResponse = resolvedEmergencies.length > 0
         ? resolvedEmergencies.reduce((sum, e) => sum + e.responseTime, 0) / resolvedEmergencies.length
         : 0;
-    
+
     // Update metric elements
     const avgResponseEl = document.getElementById('avgResponseTime');
     if (avgResponseEl) {
         avgResponseEl.textContent = avgResponse > 0 ? `${avgResponse.toFixed(1)}s` : '--';
     }
-    
+
     const highRiskEl = document.getElementById('highRiskZones');
     if (highRiskEl && stats.zones) {
         highRiskEl.textContent = stats.zones.highRiskZones || 0;
     }
-    
+
     const totalIncidentsEl = document.getElementById('totalIncidents');
     if (totalIncidentsEl && stats.zones) {
         totalIncidentsEl.textContent = stats.zones.totalIncidents || 0;
     }
-    
+
     const avgZoneRiskEl = document.getElementById('avgZoneRisk');
     if (avgZoneRiskEl && stats.zones) {
         avgZoneRiskEl.textContent = stats.zones.averageRisk ? stats.zones.averageRisk.toFixed(1) : '--';
@@ -900,21 +911,21 @@ function renderMetrics() {
 function renderDijkstraAnalysis() {
     const pathAnalysisDiv = document.getElementById('pathAnalysis');
     if (!pathAnalysisDiv || !systemState) return;
-    
+
     // Find active emergencies with assigned patrols
-    const activeWithRoutes = systemState.activeEmergencies?.filter(e => 
+    const activeWithRoutes = systemState.activeEmergencies?.filter(e =>
         e.assignedPatrol && e.route && (e.status === 'ASSIGNED' || e.status === 'RESPONDING')
     ) || [];
-    
+
     if (activeWithRoutes.length === 0) {
         pathAnalysisDiv.innerHTML = '<p style=\"color: #7f8c8d; text-align: center; padding: 15px;\">No active patrol routes<br><small>Routes appear when patrols are dispatched</small></p>';
         return;
     }
-    
+
     // Show the most recent route
     const latest = activeWithRoutes[activeWithRoutes.length - 1];
     const route = latest.route;
-    
+
     pathAnalysisDiv.innerHTML = `
         <div class=\"path-analysis-item\">
             <div class=\"path-header\">
@@ -953,12 +964,12 @@ function renderDijkstraAnalysis() {
 
 function showEmergencyDetails(emergency) {
     selectedEmergency = emergency;
-    
+
     const modal = document.getElementById('emergencyModal');
     const details = document.getElementById('emergencyDetails');
-    
+
     const waitTime = Math.floor((Date.now() - emergency.timestamp) / 1000);
-    
+
     details.innerHTML = `
         <div style="line-height: 2;">
             <p><strong>Emergency ID:</strong> ${emergency.id}</p>
@@ -972,7 +983,7 @@ function showEmergencyDetails(emergency) {
             ${emergency.eta ? `<p><strong>ETA:</strong> ${Math.ceil(emergency.eta)}s</p>` : ''}
         </div>
     `;
-    
+
     modal.classList.remove('hidden');
 }
 
@@ -989,7 +1000,7 @@ function resolveCurrentEmergency() {
                 emergencyId: selectedEmergency.id
             }
         }));
-        
+
         closeModal();
     }
 }
@@ -1010,16 +1021,40 @@ function toggleDangerZone(nodeId, isDanger) {
     }
 }
 
+function toggleEditDangerZoneMode() {
+    isEditDangerZoneMode = !isEditDangerZoneMode;
+    const btn = document.getElementById('btnToggleEditMode');
+    if (btn) {
+        btn.textContent = isEditDangerZoneMode ? '💾 SAVE DANGER ZONES' : '⚠️ EDIT DANGER ZONES';
+        btn.classList.toggle('active', isEditDangerZoneMode);
+    }
+
+    // Add a visual indicator to the map
+    const mapPanel = document.querySelector('.map-panel');
+    if (mapPanel) {
+        mapPanel.classList.toggle('edit-mode', isEditDangerZoneMode);
+    }
+
+    showNotification(
+        isEditDangerZoneMode ? '⚠️ Edit Mode ON' : '✓ Edit Mode OFF',
+        isEditDangerZoneMode ? 'You can now click on nodes to toggle danger zones.' : 'Danger zone configurations saved.',
+        isEditDangerZoneMode ? 'warning' : 'success'
+    );
+}
+
+// Make toggleEditDangerZoneMode globally accessible
+window.toggleEditDangerZoneMode = toggleEditDangerZoneMode;
+
 function resetSystem() {
     console.log('🔄 Reset System button clicked');
     console.log('WebSocket state:', ws.readyState, 'OPEN=', WebSocket.OPEN);
-    
+
     if (ws.readyState === WebSocket.OPEN) {
         console.log('Sending RESET_SYSTEM message to server...');
         ws.send(JSON.stringify({
             type: 'RESET_SYSTEM'
         }));
-        
+
         // Immediately clear ALL client-side state
         if (systemState) {
             systemState.activeEmergencies = [];
@@ -1035,40 +1070,40 @@ function resetSystem() {
                 systemState.hashTableInternals.buckets = [];
             }
         }
-        
+
         // Immediately clear ALL UI sections
-        
+
         // 1. Clear patrol paths
         const pathGroup = document.getElementById('patrolPaths');
         if (pathGroup) pathGroup.innerHTML = '';
-        
+
         // 2. Clear emergency list and counter
         const emergencyList = document.getElementById('emergencyList');
         const emergencyCount = document.getElementById('emergencyCount');
         if (emergencyList) emergencyList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No active emergencies</p>';
         if (emergencyCount) emergencyCount.textContent = '0';
-        
+
         // 3. Clear priority queue
         const queueList = document.getElementById('priorityQueueList');
         const queueSize = document.getElementById('queueSize');
         if (queueList) queueList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Queue empty</p>';
         if (queueSize) queueSize.textContent = '0';
-        
+
         // 4. Clear zone intelligence (hash table section)
         const zoneList = document.getElementById('zoneIntelligenceList');
         const zoneCount = document.getElementById('zoneCount');
         if (zoneList) zoneList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No zone data yet</p>';
         if (zoneCount) zoneCount.textContent = '0';
-        
+
         // 5. Clear resolution history
         const historyList = document.getElementById('historyList');
         if (historyList) historyList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">No resolution history</p>';
-        
+
         // Request fresh state from server
         setTimeout(() => {
             ws.send(JSON.stringify({ type: 'REQUEST_STATE' }));
         }, 100);
-        
+
         showNotification('✓ System Reset', 'All emergencies and historical data cleared', 'success');
         console.log('✓ Reset message sent successfully - all sections cleared');
     } else {
@@ -1102,7 +1137,7 @@ function resetMap() {
 }
 
 function updateMapTransform() {
-    mapGroup.setAttribute('transform', 
+    mapGroup.setAttribute('transform',
         `translate(${currentTranslateX}, ${currentTranslateY}) scale(${currentScale})`
     );
 }
@@ -1113,11 +1148,11 @@ function updateMapTransform() {
 
 function createSVGElement(tag, attributes = {}) {
     const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
-    
+
     for (let [key, value] of Object.entries(attributes)) {
         element.setAttribute(key, value);
     }
-    
+
     return element;
 }
 
@@ -1132,13 +1167,13 @@ function openPanelModal(panelType) {
     const modal = document.getElementById('panelModal');
     const title = document.getElementById('panelModalTitle');
     const body = document.getElementById('panelModalBody');
-    
+
     if (!systemState) {
         body.innerHTML = '<p style="text-align: center; padding: 20px;">Loading...</p>';
         return;
     }
-    
-    switch(panelType) {
+
+    switch (panelType) {
         case 'priorityQueue':
             title.textContent = '📊 Priority Queue Analysis (Max-Heap)';
             body.innerHTML = renderPriorityQueueModal();
@@ -1167,7 +1202,7 @@ function openPanelModal(panelType) {
             title.textContent = 'Information';
             body.innerHTML = '<p style="text-align: center; padding: 20px;">No data available for this section.</p>';
     }
-    
+
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
@@ -1184,18 +1219,18 @@ function closePanelModal() {
 function renderPriorityQueueModal() {
     const history = systemState.resolutionHistory || [];
     const currentQueue = systemState.emergencyQueue || [];
-    
+
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
-    
+
     // Current Queue
     html += `
         <div style="margin-bottom: 30px;">
             <h3 style="color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 10px;">
                 🔴 Current Emergency Queue (${currentQueue.length})
             </h3>
-            ${currentQueue.length === 0 ? 
-                '<p style="color: #7f8c8d; padding: 20px;">No emergencies in queue</p>' :
-                currentQueue.map((e, idx) => `
+            ${currentQueue.length === 0 ?
+            '<p style="color: #7f8c8d; padding: 20px;">No emergencies in queue</p>' :
+            currentQueue.map((e, idx) => `
                     <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #3498db;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <strong style="font-size: 16px;">#${idx + 1} - ${e.id}</strong>
@@ -1221,10 +1256,10 @@ function renderPriorityQueueModal() {
                         </div>
                     </div>
                 `).join('')
-            }
+        }
         </div>
     `;
-    
+
     // Resolution History
     html += `
         <div style="margin-bottom: 30px;">
@@ -1232,8 +1267,8 @@ function renderPriorityQueueModal() {
                 ✅ Recently Resolved (Last ${Math.min(history.length, 10)})
             </h3>
             ${history.length === 0 ?
-                '<p style="color: #7f8c8d; padding: 20px;">No resolution history yet</p>' :
-                history.slice(0, 10).map(h => `
+            '<p style="color: #7f8c8d; padding: 20px;">No resolution history yet</p>' :
+            history.slice(0, 10).map(h => `
                     <div style="background: rgba(46, 204, 113, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #2ecc71;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <strong>${h.id}</strong>
@@ -1258,10 +1293,10 @@ function renderPriorityQueueModal() {
                         </div>
                     </div>
                 `).join('')
-            }
+        }
         </div>
     `;
-    
+
     html += '</div>';
     return html;
 }
@@ -1270,16 +1305,16 @@ function renderPriorityQueueModal() {
 function renderSystemMetricsModal() {
     const history = systemState.resolutionHistory || [];
     const patrols = systemState.patrols || [];
-    
+
     // Calculate metrics
     const avgResponseTime = history.length > 0 ?
         (history.reduce((sum, h) => sum + h.responseTime, 0) / history.length).toFixed(1) : '0';
-    
+
     const typeBreakdown = {};
     history.forEach(h => {
         typeBreakdown[h.distressType] = (typeBreakdown[h.distressType] || 0) + 1;
     });
-    
+
     const patrolStats = {};
     patrols.forEach(p => {
         const resolved = history.filter(h => h.patrolId === p.id);
@@ -1291,9 +1326,9 @@ function renderSystemMetricsModal() {
             };
         }
     });
-    
+
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
-    
+
     // Overall Stats
     html += `
         <div style="background: rgba(52, 152, 219, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
@@ -1314,16 +1349,16 @@ function renderSystemMetricsModal() {
             </div>
         </div>
     `;
-    
+
     // Emergency Type Breakdown
     html += `
         <div style="margin-bottom: 20px;">
             <h3 style="color: #e74c3c;">🚨 Emergency Type Breakdown</h3>
-            ${Object.keys(typeBreakdown).length === 0 ? 
-                '<p style="color: #7f8c8d;">No data yet</p>' :
-                Object.entries(typeBreakdown).map(([type, count]) => {
-                    const percent = ((count / history.length) * 100).toFixed(1);
-                    return `
+            ${Object.keys(typeBreakdown).length === 0 ?
+            '<p style="color: #7f8c8d;">No data yet</p>' :
+            Object.entries(typeBreakdown).map(([type, count]) => {
+                const percent = ((count / history.length) * 100).toFixed(1);
+                return `
                         <div style="margin: 10px 0;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
                                 <span style="text-transform: uppercase; font-weight: bold;">${type}</span>
@@ -1334,18 +1369,18 @@ function renderSystemMetricsModal() {
                             </div>
                         </div>
                     `;
-                }).join('')
-            }
+            }).join('')
+        }
         </div>
     `;
-    
+
     // Patrol Performance
     html += `
         <div>
             <h3 style="color: #2ecc71;">🚓 Patrol Performance</h3>
             ${Object.keys(patrolStats).length === 0 ?
-                '<p style="color: #7f8c8d;">No data yet</p>' :
-                Object.entries(patrolStats).map(([name, stats]) => `
+            '<p style="color: #7f8c8d;">No data yet</p>' :
+            Object.entries(patrolStats).map(([name, stats]) => `
                     <div style="background: rgba(46, 204, 113, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #2ecc71;">
                         <div style="display: flex; justify-content: space-between;">
                             <strong>${name}</strong>
@@ -1356,10 +1391,10 @@ function renderSystemMetricsModal() {
                         </div>
                     </div>
                 `).join('')
-            }
+        }
         </div>
     `;
-    
+
     html += '</div>';
     return html;
 }
@@ -1368,15 +1403,15 @@ function renderSystemMetricsModal() {
 function renderZoneIntelligenceModal() {
     const zones = systemState.zoneIntelligence || [];
     const internals = systemState.hashTableInternals || {};
-    
+
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
-    
+
     // Database Overview Statistics
     const totalIncidents = zones.reduce((sum, z) => sum + z.past_incident_count, 0);
     const avgRisk = zones.length > 0 ? (zones.reduce((sum, z) => sum + z.risk_level, 0) / zones.length) : 0;
     const highRiskCount = zones.filter(z => z.risk_level >= 7).length;
     const mediumRiskCount = zones.filter(z => z.risk_level >= 4 && z.risk_level < 7).length;
-    
+
     html += `
         <div style="background: rgba(155, 89, 182, 0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
             <h3 style="color: #9b59b6; margin-top: 0;">📊 Zone Intelligence Overview</h3>
@@ -1412,7 +1447,7 @@ function renderZoneIntelligenceModal() {
             </div>
         </div>
     `;
-    
+
     // All Zones Summary
     const allZonesSorted = zones.sort((a, b) => b.risk_level - a.risk_level);
     if (allZonesSorted.length > 0) {
@@ -1424,8 +1459,8 @@ function renderZoneIntelligenceModal() {
                 </div>
                 <div style="max-height: 300px; overflow-y: auto;">
                     ${allZonesSorted.map((zone, idx) => {
-                        const riskColor = zone.risk_level >= 7 ? '#e74c3c' : zone.risk_level >= 4 ? '#f39c12' : '#2ecc71';
-                        return `
+            const riskColor = zone.risk_level >= 7 ? '#e74c3c' : zone.risk_level >= 4 ? '#f39c12' : '#2ecc71';
+            return `
                         <div style="background: rgba(52, 152, 219, 0.1); padding: 12px; margin: 8px 0; border-left: 4px solid ${riskColor}; display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <div style="font-weight: bold; color: #3498db;">${idx + 1}. ${zone.zoneId}</div>
@@ -1443,20 +1478,20 @@ function renderZoneIntelligenceModal() {
                             </div>
                         </div>
                         `;
-                    }).join('')}
+        }).join('')}
                 </div>
             </div>
         `;
     }
-    
+
     // High Risk Zones
     const highRiskZones = zones.filter(z => z.risk_level >= 7).sort((a, b) => b.risk_level - a.risk_level);
     html += `
         <div>
             <h3 style="color: #e74c3c;">⚠️ High-Risk Zones (Risk ≥ 7/10)</h3>
             ${highRiskZones.length === 0 ?
-                '<p style="color: #7f8c8d;">No high-risk zones currently</p>' :
-                highRiskZones.map(zone => `
+            '<p style="color: #7f8c8d;">No high-risk zones currently</p>' :
+            highRiskZones.map(zone => `
                     <div style="background: rgba(231, 76, 60, 0.1); padding: 15px; margin: 10px 0; border-left: 4px solid #e74c3c;">
                         <div style="display: flex; justify-content: space-between;">
                             <strong style="font-size: 16px;">${zone.zoneId}</strong>
@@ -1475,10 +1510,10 @@ function renderZoneIntelligenceModal() {
                         </div>
                     </div>
                 `).join('')
-            }
+        }
         </div>
     `;
-    
+
     html += '</div>';
     return html;
 }
@@ -1486,9 +1521,9 @@ function renderZoneIntelligenceModal() {
 // Dijkstra Analysis Modal
 function renderDijkstraModal() {
     const history = systemState.resolutionHistory || [];
-    
+
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
-    
+
     if (history.length === 0) {
         html += '<p style="text-align: center; color: #7f8c8d; padding: 40px;">No path analysis data yet. Paths will appear as emergencies are resolved.</p>';
     } else {
@@ -1497,10 +1532,10 @@ function renderDijkstraModal() {
                 🛣️ Last ${Math.min(history.length, 10)} Pathfinding Decisions
             </h3>
         `;
-        
+
         history.slice(0, 10).forEach((h, idx) => {
             const dangerPenalty = h.dangerZonesAvoided * 3; // Estimated time added/saved
-            
+
             html += `
                 <div style="background: rgba(52, 152, 219, 0.1); padding: 15px; margin: 15px 0; border-left: 4px solid #3498db;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1522,10 +1557,10 @@ function renderDijkstraModal() {
                             <ul style="margin: 0; padding-left: 20px; color: #bdc3c7; font-size: 13px; line-height: 1.6;">
                                 <li>Danger zones in path: <strong style="color: ${h.dangerZonesAvoided > 0 ? '#e74c3c' : '#2ecc71'};">${h.dangerZonesAvoided}</strong></li>
                                 <li>Zone risk at destination: <strong>${h.zoneRisk.toFixed(1)}/10</strong></li>
-                                ${h.dangerZonesAvoided > 0 ? 
-                                    `<li style="color: #e74c3c;">⚠️ Unavoidable danger zones (safest path still goes through ${h.dangerZonesAvoided} risky areas)</li>` :
-                                    `<li style="color: #2ecc71;">✓ Clean path - no danger zones crossed</li>`
-                                }
+                                ${h.dangerZonesAvoided > 0 ?
+                    `<li style="color: #e74c3c;">⚠️ Unavoidable danger zones (safest path still goes through ${h.dangerZonesAvoided} risky areas)</li>` :
+                    `<li style="color: #2ecc71;">✓ Clean path - no danger zones crossed</li>`
+                }
                                 <li>Estimated danger penalty: ~${dangerPenalty}s added to travel time</li>
                             </ul>
                         </div>
@@ -1542,7 +1577,7 @@ function renderDijkstraModal() {
             `;
         });
     }
-    
+
     html += '</div>';
     return html;
 }
@@ -1550,14 +1585,14 @@ function renderDijkstraModal() {
 // Active Emergencies Modal
 function renderActiveEmergenciesModal() {
     const emergencies = systemState.emergencies || [];
-    
+
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
-    
+
     if (emergencies.length === 0) {
         html += '<p style="text-align: center; padding: 40px; color: #7f8c8d;">No active emergencies at the moment</p>';
     } else {
         html += `<h3 style="color: #e74c3c; border-bottom: 2px solid #e74c3c; padding-bottom: 10px;">🚨 ${emergencies.length} Active Emergency${emergencies.length > 1 ? 'ies' : ''}</h3>`;
-        
+
         emergencies.forEach(e => {
             const statusColor = {
                 'PENDING': '#f39c12',
@@ -1565,9 +1600,9 @@ function renderActiveEmergenciesModal() {
                 'RESPONDING': '#9b59b6',
                 'ENGAGED': '#2ecc71'
             }[e.status] || '#7f8c8d';
-            
+
             const waitTime = ((Date.now() - e.timestamp) / 1000).toFixed(1);
-            
+
             html += `
                 <div style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(155, 89, 182, 0.1)); padding: 20px; margin: 15px 0; border-left: 5px solid ${statusColor}; border-radius: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -1617,7 +1652,7 @@ function renderActiveEmergenciesModal() {
             `;
         });
     }
-    
+
     html += '</div>';
     return html;
 }
@@ -1625,15 +1660,15 @@ function renderActiveEmergenciesModal() {
 // Patrol Status Modal
 function renderPatrolStatusModal() {
     const patrols = systemState.patrols || [];
-    
+
     let html = '<div style="max-height: 600px; overflow-y: auto;">';
-    
+
     if (patrols.length === 0) {
         html += '<p style="text-align: center; padding: 40px; color: #7f8c8d;">No patrol units available</p>';
     } else {
         const availableCount = patrols.filter(p => p.status === 'IDLE').length;
         const activeCount = patrols.length - availableCount;
-        
+
         html += `
             <div style="display: flex; gap: 20px; margin-bottom: 20px;">
                 <div style="flex: 1; background: linear-gradient(135deg, #2ecc71, #27ae60); padding: 15px; border-radius: 10px; text-align: center;">
@@ -1646,21 +1681,21 @@ function renderPatrolStatusModal() {
                 </div>
             </div>
         `;
-        
+
         // Group by status
         const idle = patrols.filter(p => p.status === 'IDLE');
         const active = patrols.filter(p => p.status !== 'IDLE');
-        
+
         if (active.length > 0) {
             html += `<h3 style="color: #3498db; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-top: 30px;">🚓 On Active Duty (${active.length})</h3>`;
-            
+
             active.forEach(p => {
                 const statusColor = {
                     'RESPONDING': '#f39c12',
                     'ENGAGED': '#e74c3c',
                     'RETURNING': '#9b59b6'
                 }[p.status] || '#3498db';
-                
+
                 html += `
                     <div style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(155, 89, 182, 0.15)); padding: 18px; margin: 12px 0; border-left: 5px solid ${statusColor}; border-radius: 8px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1697,10 +1732,10 @@ function renderPatrolStatusModal() {
                 `;
             });
         }
-        
+
         if (idle.length > 0) {
             html += `<h3 style="color: #2ecc71; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-top: 30px;">✅ Available Patrols (${idle.length})</h3>`;
-            
+
             idle.forEach(p => {
                 html += `
                     <div style="background: rgba(46, 204, 113, 0.15); padding: 18px; margin: 12px 0; border-left: 5px solid #2ecc71; border-radius: 8px;">
@@ -1722,7 +1757,7 @@ function renderPatrolStatusModal() {
             });
         }
     }
-    
+
     html += '</div>';
     return html;
 }
