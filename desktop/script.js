@@ -150,6 +150,45 @@ function initializeUI() {
             closeModal();
         }
     });
+
+    // Event Delegation for Map Nodes
+    // Fixes issue where re-rendering breaks individual listeners
+    svg.addEventListener('click', (e) => {
+        // Find closest node group
+        const nodeG = e.target.closest('.node');
+
+        if (nodeG) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const nodeId = nodeG.getAttribute('data-node-id');
+            const nodeName = nodeG.querySelector('.node-label')?.textContent || nodeId;
+
+            console.log('SVG Delegated Click -> Node:', nodeId, 'EditMode:', isEditDangerZoneMode);
+
+            if (!isEditDangerZoneMode) {
+                showNotification(
+                    'ℹ️ Info',
+                    'Activate "Edit Danger Zones" mode to modify zones.',
+                    'info'
+                );
+                return;
+            }
+
+            // Check current state by looking at the circle's properties
+            // If stroke is red (#e94560), it's currently a danger zone
+            const circle = nodeG.querySelector('.node-circle');
+            const currentStateIsDanger = circle && circle.getAttribute('stroke') === '#e94560';
+
+            toggleDangerZone(nodeId, !currentStateIsDanger);
+
+            showNotification(
+                !currentStateIsDanger ? '⚠️ Danger Zone Activated' : '✓ Zone Normalized',
+                `${nodeName} is now ${!currentStateIsDanger ? 'a danger zone' : 'safe'}`,
+                !currentStateIsDanger ? 'warning' : 'info'
+            );
+        }
+    });
 }
 
 function startClock() {
@@ -411,29 +450,8 @@ function renderNodes(nodes, dangerZones) {
         nodeG.appendChild(circle);
         nodeG.appendChild(text);
 
-        // Click to toggle danger zone with visual feedback
-        nodeG.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Node clicked:', node.id, 'EditMode:', isEditDangerZoneMode);
-
-            if (!isEditDangerZoneMode) {
-                // If not in edit mode, maybe just show notification or do nothing
-                showNotification(
-                    'ℹ️ Info',
-                    'Activate "Edit Danger Zones" mode to modify zones.',
-                    'info'
-                );
-                return;
-            }
-
-            toggleDangerZone(node.id, !isDanger);
-            showNotification(
-                isDanger ? '✓ Zone Normalized' : '⚠️ Danger Zone Activated',
-                `${node.name || node.id} is now ${isDanger ? 'safe' : 'a danger zone'}`,
-                isDanger ? 'info' : 'warning'
-            );
-        });
+        // Click handler removed - using Event Delegation in initializeUI
+        // This prevents listeners from being lost during re-renders
 
         // Add hover effect
         nodeG.addEventListener('mouseenter', () => {
