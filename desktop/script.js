@@ -397,11 +397,26 @@ function renderNodes(nodes, dangerZones) {
         });
         text.textContent = node.name || node.id;
 
+        // Increase clickable area with invisible circle
+        const hitArea = createSVGElement('circle', {
+            cx: node.x,
+            cy: node.y,
+            r: '20', // Larger hit target
+            fill: 'transparent',
+            stroke: 'none',
+            style: 'pointer-events: auto;'
+        });
+        nodeG.appendChild(hitArea);
+
         nodeG.appendChild(circle);
         nodeG.appendChild(text);
 
         // Click to toggle danger zone with visual feedback
-        nodeG.addEventListener('click', () => {
+        nodeG.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Node clicked:', node.id, 'EditMode:', isEditDangerZoneMode);
+
             if (!isEditDangerZoneMode) {
                 // If not in edit mode, maybe just show notification or do nothing
                 showNotification(
@@ -496,10 +511,10 @@ function renderPatrols() {
                     width: '24',
                     height: '24',
                     rx: '4',
-                    fill: '#34495e',
                     stroke: '#3498db',
                     'stroke-width': '2',
-                    opacity: '0.8'
+                    opacity: '0.8',
+                    style: 'pointer-events: none;'
                 });
 
                 // Station icon text
@@ -509,7 +524,8 @@ function renderPatrols() {
                     'text-anchor': 'middle',
                     'font-size': '16',
                     'font-weight': 'bold',
-                    fill: '#3498db'
+                    fill: '#3498db',
+                    style: 'pointer-events: none;'
                 });
                 stationIcon.textContent = '🏠';
 
@@ -530,6 +546,7 @@ function renderPatrols() {
         });
 
         // Patrol vehicle icon (HUGE and visible)
+        // Patrol vehicle icon (HUGE and visible)
         const vehicle = createSVGElement('circle', {
             cx: patrol.x,
             cy: patrol.y,
@@ -538,7 +555,8 @@ function renderPatrols() {
             stroke: '#ffffff',
             'stroke-width': '5',
             opacity: '1',
-            filter: 'drop-shadow(0 0 10px rgba(142, 68, 173, 0.8))'
+            filter: 'drop-shadow(0 0 10px rgba(142, 68, 173, 0.8))',
+            style: 'pointer-events: none;' // Pass clicks through to nodes underneath
         });
 
         // State indicator
